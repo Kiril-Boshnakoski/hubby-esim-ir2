@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: hubby_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: hubby_pass
+      POSTGRES_DB: hubby_db
+    ports:
+      - "5431:5431"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
