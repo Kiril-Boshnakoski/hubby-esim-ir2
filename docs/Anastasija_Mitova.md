@@ -1,0 +1,1 @@
+week 2 - made a script for creating tables
