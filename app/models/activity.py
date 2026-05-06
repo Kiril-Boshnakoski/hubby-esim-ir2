@@ -1,25 +1,27 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Integer, String, Float, JSON
+from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 from app.models.base import AuditMixin
-
 
 class Activity(Base, AuditMixin):
     """Activity model for storing activity information."""
 
     __tablename__ = "activities"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False, index=True)
-    type = Column(String(100), nullable=True, index=True)
-    phone_number = Column(String(20), nullable=True)
-    latitude = Column(Float, nullable=True)
-    longitude = Column(Float, nullable=True)
-    rating = Column(Float, default=0.0, nullable=False)
-    user_rating_count = Column(Integer, default=0, nullable=False)
-    monday_working_hours = Column(String(50), nullable=True)
-    tuesday_working_hours = Column(String(50), nullable=True)
-    wednesday_working_hours = Column(String(50), nullable=True)
-    thursday_working_hours = Column(String(50), nullable=True)
-    friday_working_hours = Column(String(50), nullable=True)
-    saturday_working_hours = Column(String(50), nullable=True)
-    sunday_working_hours = Column(String(50), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    type: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True, default="other")
+    phone_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    user_rating_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # JSON koloni za rabotno vreme
+    monday_working_hours: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
+    tuesday_working_hours: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
+    wednesday_working_hours: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
+    thursday_working_hours: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
+    friday_working_hours: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
+    saturday_working_hours: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
+    sunday_working_hours: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
