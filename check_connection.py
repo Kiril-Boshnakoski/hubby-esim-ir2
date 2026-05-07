@@ -6,9 +6,9 @@ def test_conn():
         with engine.connect() as connection:
             # Извршуваме едноставен тест на базата
             result = connection.execute(text("SELECT 1"))
-            print("✅ Конекцијата е успешна! Базата одговори.")
+            print("Конекцијата е успешна! Базата одговори.")
     except Exception as e:
-        print(f"❌ Грешка при поврзување: {e}")
+        print(f"Грешка при поврзување: {e}")
 
 if __name__ == "__main__":
     test_conn()
