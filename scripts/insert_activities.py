@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import pandas as pd
+from pathlib import Path
 
 # Ensure project root is on sys.path so `from app...` works when running script directly
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -9,8 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.database import SessionLocal
 from app.models.activity import Activity
 
-FILE_PATH = r"data\processed_activities.tsv"
-
+FILE_PATH = Path("data") / "processed_activities.tsv"
 
 def clean_value(value):
     if pd.isna(value) or value == "null":
