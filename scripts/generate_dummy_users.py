@@ -16,7 +16,7 @@ def generate_coordinates():
     return SKOPJE_LAT + lat_offset, SKOPJE_LON + lon_offset
 
 
-def generate_dummy_users(n=1):  #test
+def generate_dummy_users(n=70):  #test
     db = SessionLocal()
 
     users = []
