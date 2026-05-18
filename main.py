@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.activity import Activity
+from app.routes import users
 
 app = FastAPI()
 
@@ -68,3 +69,5 @@ def update_activity(activity_id: int, activity: ActivityUpdate, db: Session = De
     db.commit()
     db.refresh(db_activity)
     return db_activity
+
+app.include_router(users.router)
