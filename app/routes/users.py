@@ -1,6 +1,8 @@
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional, List
+from math import radians, cos, sin, asin, sqrt
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 
 from app.database import get_db  
@@ -11,6 +13,52 @@ router = APIRouter(
     prefix="/users",
     tags=["Users"]
 )
+
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Calculate the great circle distance between two points on the earth (in kilometers).
+    
+    Args:
+        lat1, lon1: Latitude and longitude of point 1 (in decimal degrees)
+        lat2, lon2: Latitude and longitude of point 2 (in decimal degrees)
+    
+    Returns:
+        Distance in kilometers
+    """
+    # Convert decimal degrees to radians
+    lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(radians, [lat1, lon1, lat2, lon2])
+    
+    # Haversine formula
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    a = sin(dlat / 2) ** 2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+    r = 6371  # Radius of earth in kilometers
+    
+    return c * r
+
+
+# ============================================================================
+# Pydantic Models
+# ============================================================================
+
+class UserResponse(BaseModel):
+    """Response model for User."""
+    id: int
+    email: str
+    name: str
+    surname: str
+    destination: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    
+    class Config:
+        from_attributes = True
 
 
 class UserCreate(BaseModel):
@@ -28,6 +76,76 @@ class UserUpdate(BaseModel):
     destination: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+
+
+# ============================================================================
+# Endpoints
+# ============================================================================
+
+@router.get("/", response_model=List[UserResponse], status_code=status.HTTP_200_OK)
+def get_users(
+    limit: int = Query(20, ge=1, le=100, description="Number of users to return (1-100)"),
+    latitude: Optional[float] = Query(None, description="Latitude for geolocation filter"),
+    longitude: Optional[float] = Query(None, description="Longitude for geolocation filter"),
+    radius_km: Optional[float] = Query(None, ge=0.1, description="Search radius in kilometers"),
+    db: Session = Depends(get_db)
+) -> List[UserResponse]:
+    """
+    Retrieve users with optional geolocation filtering.
+    
+    Query Parameters:
+    - **limit**: Maximum number of users to return (default: 20, range: 1-100)
+    - **latitude**: User's latitude for nearby user search (requires longitude and radius_km)
+    - **longitude**: User's longitude for nearby user search (requires latitude and radius_km)
+    - **radius_km**: Search radius in kilometers (requires latitude and longitude)
+    
+    Returns:
+        List of users matching the query criteria.
+        
+    Examples:
+        GET /users
+        GET /users?limit=10
+        GET /users?latitude=41.123&longitude=20.801&radius_km=5
+    """
+    
+    # Validate geolocation parameters
+    has_latitude = latitude is not None
+    has_longitude = longitude is not None
+    has_radius = radius_km is not None
+    
+    # Check if coordinates are partially provided
+    if (has_latitude or has_longitude or has_radius):
+        if not (has_latitude and has_longitude and has_radius):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Latitude, longitude, and radius_km must all be provided together for geolocation filtering"
+            )
+    
+    # Query all users with latitude and longitude
+    query = select(User).limit(limit)
+    users = db.execute(query).scalars().all()
+    
+    # Filter by geolocation if all parameters are provided
+    if has_latitude and has_longitude and has_radius:
+        filtered_users = []
+        for user in users:
+            # Skip users without coordinates
+            if user.latitude is None or user.longitude is None:
+                continue
+            
+            # Calculate distance using Haversine formula
+            distance = haversine_distance(
+                latitude, longitude,
+                user.latitude, user.longitude
+            )
+            
+            # Include user if within radius
+            if distance <= radius_km:
+                filtered_users.append(user)
+        
+        return filtered_users
+    
+    return users
 
 
 
