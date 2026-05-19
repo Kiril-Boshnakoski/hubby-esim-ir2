@@ -121,10 +121,15 @@ def get_users(
                 detail="Latitude, longitude, and radius_km must all be provided together for geolocation filtering"
             )
     
-    # Query all users with latitude and longitude
-    query = select(User).limit(limit)
+    # Query users. If geolocation filtering is requested, fetch all users
+    # and apply the radius filter in Python, then apply the `limit`.
+    if has_latitude and has_longitude and has_radius:
+        query = select(User)
+    else:
+        query = select(User).limit(limit)
+
     users = db.execute(query).scalars().all()
-    
+
     # Filter by geolocation if all parameters are provided
     if has_latitude and has_longitude and has_radius:
         filtered_users = []
@@ -132,19 +137,20 @@ def get_users(
             # Skip users without coordinates
             if user.latitude is None or user.longitude is None:
                 continue
-            
+
             # Calculate distance using Haversine formula
             distance = haversine_distance(
                 latitude, longitude,
                 user.latitude, user.longitude
             )
-            
+
             # Include user if within radius
             if distance <= radius_km:
                 filtered_users.append(user)
-        
-        return filtered_users
-    
+
+        # Apply the limit after filtering
+        return filtered_users[:limit]
+
     return users
 
 
