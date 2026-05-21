@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.activity import Activity
 from app.utils.geo_utils import haversine, validate_coordinates
+from app.services.infer_context import infer_context, get_category_relevance
 
 
 DEFAULT_RECOMMENDATION_RADIUS_KM = 50.0
@@ -14,14 +15,15 @@ def rating_score(rating):
         return 0.0
     return float(rating) / 5.0
 
-def get_category_relevance(activity_type, context):
-    if not context or not activity_type:
-        return 0.0
+### Eligible for removal
+# def get_category_relevance(activity_type, context):
+#     if not context or not activity_type:
+#         return 0.0
     
-    activity_type_lower = activity_type.lower()
-    context_lowercase = [item.lower() for item in context]
+#     activity_type_lower = activity_type.lower()
+#     context_lowercase = [item.lower() for item in context]
     
-    return 1.0 if activity_type_lower in context_lowercase else 0.0
+#     return 1.0 if activity_type_lower in context_lowercase else 0.0
 
 def calculate_score(act, dist_km, radius_km, context):
     d_score = distance_score(dist_km, radius_km)
@@ -48,16 +50,16 @@ def popularity_score(user_rating_count):
     score = math.log10(user_rating_count + 1) / 4.0
     return min(score, 1.0)
 
-
-def infer_context(timestamp: datetime) -> str:
-    if 6 <= timestamp.hour <= 11:
-        return "breakfast"
-    elif 12 <= timestamp.hour <= 16:
-        return "lunch"
-    elif 17 <= timestamp.hour <= 21:
-        return "dinner"
-    else:
-        return "nightlife"
+### Eligible for removal
+# def infer_context(timestamp: datetime) -> str:
+#     if 6 <= timestamp.hour <= 11:
+#         return "breakfast"
+#     elif 12 <= timestamp.hour <= 16:
+#         return "lunch"
+#     elif 17 <= timestamp.hour <= 21:
+#         return "dinner"
+#     else:
+#         return "nightlife"
 
 
 def parse_hours_entry(entry: dict | str) -> tuple[datetime.time, datetime.time] | None:
