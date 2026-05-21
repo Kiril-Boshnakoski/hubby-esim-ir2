@@ -2,7 +2,7 @@ from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_, func
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -82,6 +82,25 @@ def check_activity_open(activity: Activity, day_of_week: int) -> bool:
     return False
 
 
+def build_category_filter(category: str):
+    """Build a case-insensitive category filter that matches category fragments."""
+    normalized_category = " ".join(category.lower().split())
+    search_terms = {
+        normalized_category,
+        normalized_category.replace(" ", "_"),
+        normalized_category.replace("_", " "),
+        normalized_category.replace(" ", "-"),
+    }
+
+    return or_(
+        *[
+            func.lower(Activity.type).like(f"%{term}%")
+            for term in search_terms
+            if term
+        ]
+    )
+
+
 # ============================================================================
 # Pydantic Models
 # ============================================================================
@@ -142,7 +161,7 @@ class ActivityUpdate(BaseModel):
 @router.get("/", response_model=List[ActivityResponse], status_code=status.HTTP_200_OK)
 def get_activities(
     limit: int = Query(20, ge=1, le=100, description="Number of activities to return (1-100)"),
-    category: Optional[str] = Query(None, description="Filter by activity category (e.g., 'restaurant', 'cafe')"),
+    category: Optional[str] = Query(None, description="Filter by activity category fragment (e.g., 'restaurant' matches 'italian_restaurant')"),
     min_rating: Optional[float] = Query(None, ge=0.0, le=5.0, description="Minimum rating (0-5)"),
     min_rating_count: Optional[int] = Query(None, ge=0, description="Minimum number of ratings"),
     open_now: Optional[bool] = Query(None, description="Filter by currently open activities"),
@@ -153,7 +172,7 @@ def get_activities(
     
     Query Parameters:
     - **limit**: Maximum number of activities to return (default: 20, range: 1-100)
-    - **category**: Filter by activity category (e.g., 'restaurant', 'cafe')
+    - **category**: Filter by activity category fragment (e.g., 'restaurant' matches 'italian_restaurant')
     - **min_rating**: Minimum rating threshold (0-5)
     - **min_rating_count**: Minimum number of user ratings required
     - **open_now**: Filter by currently open activities (true/false)
@@ -177,7 +196,7 @@ def get_activities(
     
     # Apply category filter if provided
     if category is not None and category.strip():
-        filters.append(Activity.type == category.strip())
+        filters.append(build_category_filter(category.strip()))
     
     # Apply minimum rating filter if provided
     if min_rating is not None:
