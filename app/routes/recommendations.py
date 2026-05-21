@@ -15,22 +15,15 @@ router = APIRouter(
 )
 
 
-class RecommendationActivity(BaseModel):
-    id: int
-    name: str
-    type: str | None = None
-    phone_number: str | None = None
-    latitude: float
-    longitude: float
-    rating: float | None = None
-    user_rating_count: int
-
-
 class RankedRecommendation(BaseModel):
     rank: int
-    score: float
+    name: str
+    type: str | None = None
     distance_km: float
-    activity: RecommendationActivity
+    recommendation_score: float
+    context: str
+    category_relevance: float
+    is_open: bool
 
 
 class RecommendationsResponse(BaseModel):

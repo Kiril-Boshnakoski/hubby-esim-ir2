@@ -49,31 +49,99 @@ def popularity_score(user_rating_count):
     return min(score, 1.0)
 
 
-def _activity_payload(activity: Activity) -> dict:
-    return {
-        "id": activity.id,
-        "name": activity.name,
-        "type": activity.type,
-        "phone_number": activity.phone_number,
-        "latitude": activity.latitude,
-        "longitude": activity.longitude,
-        "rating": activity.rating,
-        "user_rating_count": activity.user_rating_count,
-    }
+def infer_context(timestamp: datetime) -> str:
+    if 6 <= timestamp.hour <= 11:
+        return "breakfast"
+    elif 12 <= timestamp.hour <= 16:
+        return "lunch"
+    elif 17 <= timestamp.hour <= 21:
+        return "dinner"
+    else:
+        return "nightlife"
 
 
-def build_ranked_recommendations(db: Session, latitude: float, longitude: float) -> dict:
+def parse_hours_entry(entry: dict | str) -> tuple[datetime.time, datetime.time] | None:
+    if isinstance(entry, str):
+        if "-" not in entry:
+            return None
+        open_str, close_str = entry.split("-", 1)
+    elif isinstance(entry, dict):
+        open_str = entry.get("open")
+        close_str = entry.get("close")
+        if not open_str or not close_str:
+            return None
+    else:
+        return None
+
+    try:
+        open_t = datetime.strptime(open_str.strip(), "%H:%M").time()
+        close_t = datetime.strptime(close_str.strip(), "%H:%M").time()
+    except (ValueError, TypeError):
+        return None
+
+    return open_t, close_t
+
+
+def is_open(activity: Activity, timestamp: datetime) -> bool:
+    day = timestamp.strftime("%A").lower()
+    working_hours = getattr(activity, f"{day}_working_hours", None)
+
+    if not working_hours:
+        return False
+
+    current_time = timestamp.time()
+
+    for hours_entry in working_hours:
+        parsed = parse_hours_entry(hours_entry)
+        if not parsed:
+            continue
+
+        open_time, close_time = parsed
+
+        if open_time <= close_time:
+            if open_time <= current_time < close_time:
+                return True
+        else:
+            if current_time >= open_time or current_time < close_time:
+                return True
+
+    return False
+
+
+def filter_by_radius(db: Session, latitude: float, longitude: float, radius_km: float = DEFAULT_RECOMMENDATION_RADIUS_KM) -> list[dict]:
     latitude, longitude = validate_coordinates(latitude, longitude)
+    activities = []
 
-    activities = db.query(Activity).all()
-    ranked_activities = []
-
-    for activity in activities:
+    for activity in db.query(Activity).all():
         if activity.latitude is None or activity.longitude is None:
             continue
 
         distance_km = haversine(latitude, longitude, activity.latitude, activity.longitude)
-        activity_payload = _activity_payload(activity)
+        if distance_km <= radius_km:
+            activities.append({
+                "activity": activity,
+                "distance_km": round(distance_km, 4),
+            })
+
+    return activities
+
+
+def build_ranked_recommendations(db: Session, latitude: float, longitude: float) -> dict:
+    latitude, longitude = validate_coordinates(latitude, longitude)
+    response_timestamp = datetime.now(timezone.utc)
+    context = infer_context(response_timestamp)
+
+    candidate_activities = filter_by_radius(db, latitude, longitude)
+    ranked_activities = []
+
+    for item in candidate_activities:
+        activity = item["activity"]
+        distance_km = item["distance_km"]
+        open_state = is_open(activity, response_timestamp)
+
+        if not open_state:
+            continue
+
         score = calculate_score(
             {
                 "activity_type": activity.type,
@@ -82,14 +150,17 @@ def build_ranked_recommendations(db: Session, latitude: float, longitude: float)
             },
             dist_km=distance_km,
             radius_km=DEFAULT_RECOMMENDATION_RADIUS_KM,
-            context=[],
+            context=[context],
         )
 
         ranked_activities.append(
             {
+                "activity": activity,
+                "distance_km": distance_km,
                 "score": score,
-                "distance_km": round(distance_km, 4),
-                "activity": activity_payload,
+                "context": context,
+                "category_relevance": get_category_relevance(activity.type, [context]),
+                "is_open": open_state,
             }
         )
 
@@ -97,23 +168,27 @@ def build_ranked_recommendations(db: Session, latitude: float, longitude: float)
         key=lambda item: (
             -item["score"],
             item["distance_km"],
-            item["activity"]["name"].lower(),
-            item["activity"]["id"],
+            item["activity"].name.lower(),
+            item["activity"].id,
         )
     )
 
     recommendations = [
         {
             "rank": index + 1,
-            "score": item["score"],
+            "name": item["activity"].name,
+            "type": item["activity"].type,
             "distance_km": item["distance_km"],
-            "activity": item["activity"],
+            "recommendation_score": item["score"],
+            "context": item["context"],
+            "category_relevance": item["category_relevance"],
+            "is_open": item["is_open"],
         }
         for index, item in enumerate(ranked_activities)
     ]
 
     return {
-        "response_timestamp": datetime.now(timezone.utc).isoformat(),
+        "response_timestamp": response_timestamp.isoformat(),
         "recommendations": recommendations,
     }
 
