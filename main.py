@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routes import users, activities
+from app.routes import activities, recommendations, users
 
 app = FastAPI()
 
@@ -12,3 +12,4 @@ def read_root():
 
 app.include_router(users.router)
 app.include_router(activities.router)
+app.include_router(recommendations.router)

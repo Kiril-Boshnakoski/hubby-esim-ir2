@@ -1,4 +1,13 @@
+from datetime import datetime, timezone
 import math
+
+from sqlalchemy.orm import Session
+
+from app.models.activity import Activity
+from app.utils.geo_utils import haversine, validate_coordinates
+
+
+DEFAULT_RECOMMENDATION_RADIUS_KM = 50.0
 
 def rating_score(rating):
     if not rating:
@@ -38,6 +47,75 @@ def popularity_score(user_rating_count):
     
     score = math.log10(user_rating_count + 1) / 4.0
     return min(score, 1.0)
+
+
+def _activity_payload(activity: Activity) -> dict:
+    return {
+        "id": activity.id,
+        "name": activity.name,
+        "type": activity.type,
+        "phone_number": activity.phone_number,
+        "latitude": activity.latitude,
+        "longitude": activity.longitude,
+        "rating": activity.rating,
+        "user_rating_count": activity.user_rating_count,
+    }
+
+
+def build_ranked_recommendations(db: Session, latitude: float, longitude: float) -> dict:
+    latitude, longitude = validate_coordinates(latitude, longitude)
+
+    activities = db.query(Activity).all()
+    ranked_activities = []
+
+    for activity in activities:
+        if activity.latitude is None or activity.longitude is None:
+            continue
+
+        distance_km = haversine(latitude, longitude, activity.latitude, activity.longitude)
+        activity_payload = _activity_payload(activity)
+        score = calculate_score(
+            {
+                "activity_type": activity.type,
+                "rating": activity.rating,
+                "user_rating_count": activity.user_rating_count,
+            },
+            dist_km=distance_km,
+            radius_km=DEFAULT_RECOMMENDATION_RADIUS_KM,
+            context=[],
+        )
+
+        ranked_activities.append(
+            {
+                "score": score,
+                "distance_km": round(distance_km, 4),
+                "activity": activity_payload,
+            }
+        )
+
+    ranked_activities.sort(
+        key=lambda item: (
+            -item["score"],
+            item["distance_km"],
+            item["activity"]["name"].lower(),
+            item["activity"]["id"],
+        )
+    )
+
+    recommendations = [
+        {
+            "rank": index + 1,
+            "score": item["score"],
+            "distance_km": item["distance_km"],
+            "activity": item["activity"],
+        }
+        for index, item in enumerate(ranked_activities)
+    ]
+
+    return {
+        "response_timestamp": datetime.now(timezone.utc).isoformat(),
+        "recommendations": recommendations,
+    }
 
 
 if __name__ == "__main__":
