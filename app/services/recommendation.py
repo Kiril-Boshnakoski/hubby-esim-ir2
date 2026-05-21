@@ -8,7 +8,7 @@ from app.utils.geo_utils import haversine, validate_coordinates
 from app.services.infer_context import infer_context, get_category_relevance
 
 
-DEFAULT_RECOMMENDATION_RADIUS_KM = 50.0
+DEFAULT_RECOMMENDATION_RADIUS_KM = 1.0
 
 def rating_score(rating):
     if not rating:
@@ -152,7 +152,7 @@ def build_ranked_recommendations(db: Session, latitude: float, longitude: float)
             },
             dist_km=distance_km,
             radius_km=DEFAULT_RECOMMENDATION_RADIUS_KM,
-            context=[context],
+            context=context,
         )
 
         ranked_activities.append(
@@ -161,7 +161,7 @@ def build_ranked_recommendations(db: Session, latitude: float, longitude: float)
                 "distance_km": distance_km,
                 "score": score,
                 "context": context,
-                "category_relevance": get_category_relevance(activity.type, [context]),
+                "category_relevance": get_category_relevance(activity.type, context),
                 "is_open": open_state,
             }
         )
