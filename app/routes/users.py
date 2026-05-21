@@ -1,5 +1,4 @@
 from typing import Optional, List
-from math import radians, cos, sin, asin, sqrt
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -7,40 +6,13 @@ from sqlalchemy import select
 
 from app.database import get_db  
 from app.models.user import User
+from app.utils.geo_utils import haversine
 from pydantic import BaseModel, EmailStr
 
 router = APIRouter(
     prefix="/users",
     tags=["Users"]
 )
-
-
-# ============================================================================
-# Utility Functions
-# ============================================================================
-
-def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Calculate the great circle distance between two points on the earth (in kilometers).
-    
-    Args:
-        lat1, lon1: Latitude and longitude of point 1 (in decimal degrees)
-        lat2, lon2: Latitude and longitude of point 2 (in decimal degrees)
-    
-    Returns:
-        Distance in kilometers
-    """
-    # Convert decimal degrees to radians
-    lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(radians, [lat1, lon1, lat2, lon2])
-    
-    # Haversine formula
-    dlat = lat2_rad - lat1_rad
-    dlon = lon2_rad - lon1_rad
-    a = sin(dlat / 2) ** 2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2) ** 2
-    c = 2 * asin(sqrt(a))
-    r = 6371  # Radius of earth in kilometers
-    
-    return c * r
 
 
 # ============================================================================
@@ -139,7 +111,7 @@ def get_users(
                 continue
 
             # Calculate distance using Haversine formula
-            distance = haversine_distance(
+            distance = haversine(
                 latitude, longitude,
                 user.latitude, user.longitude
             )
