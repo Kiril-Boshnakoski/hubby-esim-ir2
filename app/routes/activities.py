@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, or_, func
@@ -14,76 +14,57 @@ router = APIRouter(
 )
 
 
-# ============================================================================
-# Utility Functions
-# ============================================================================
 
-def is_open_now() -> int:
-    """
-    Get current day of week (0-6).
-    
-    Returns:
-        Day of week (0=Monday, 6=Sunday)
-    """
-    return datetime.now().weekday()
+def parse_hours_entry(entry: dict | str) -> tuple[datetime.time, datetime.time] | None:
+    if isinstance(entry, str):
+        if "-" not in entry:
+            return None
+        open_str, close_str = entry.split("-", 1)
+    elif isinstance(entry, dict):
+        open_str = entry.get("open")
+        close_str = entry.get("close")
+        if not open_str or not close_str:
+            return None
+    else:
+        return None
+
+    try:
+        open_t = datetime.strptime(open_str.strip(), "%H:%M").time()
+        close_t = datetime.strptime(close_str.strip(), "%H:%M").time()
+    except (ValueError, TypeError):
+        return None
+
+    return open_t, close_t
 
 
-def check_activity_open(activity: Activity, day_of_week: int) -> bool:
-    """
-    Check if an activity is currently open based on working hours.
-    Verifies if the current time falls within the activity's working hours for the given day.
-    
-    Args:
-        activity: Activity model instance
-        day_of_week: Day of week (0=Monday, 6=Sunday)
-    
-    Returns:
-        True if activity is open at the current time, False otherwise
-    """
-    day_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    
-    if day_of_week < 0 or day_of_week > 6:
+def is_open(activity: Activity, timestamp: datetime) -> bool:
+    day = timestamp.strftime("%A").lower()
+    working_hours = getattr(activity, f"{day}_working_hours", None)
+
+    if not working_hours:
         return False
-    
-    working_hours_attr = f"{day_names[day_of_week]}_working_hours"
-    working_hours = getattr(activity, working_hours_attr, None)
-    
-    # If no working hours defined for this day, assume closed
-    if working_hours is None or len(working_hours) == 0:
-        return False
-    
-    # Get current time as minutes since midnight
-    now = datetime.now()
-    current_minutes = now.hour * 60 + now.minute
-    
-    # Check if current time falls within any of the working hour ranges
+
+    current_time = timestamp.time()
+
     for hours_entry in working_hours:
-        open_time = hours_entry.get("open")
-        close_time = hours_entry.get("close")
-        
-        if not open_time or not close_time:
+        parsed = parse_hours_entry(hours_entry)
+        if not parsed:
             continue
-        
-        try:
-            # Parse time strings (format: "HH:MM")
-            open_hours, open_minutes = map(int, open_time.split(":"))
-            close_hours, close_minutes = map(int, close_time.split(":"))
-            
-            open_time_minutes = open_hours * 60 + open_minutes
-            close_time_minutes = close_hours * 60 + close_minutes
-            
-            # Check if current time is within range
-            if open_time_minutes <= current_minutes < close_time_minutes:
+
+        open_time, close_time = parsed
+
+        if open_time <= close_time:
+            if open_time <= current_time < close_time:
                 return True
-        except (ValueError, AttributeError):
-            # Invalid time format, skip this entry
-            continue
-    
+        else:
+            # Overnight shift, e.g. 22:00-02:00
+            if current_time >= open_time or current_time < close_time:
+                return True
+
     return False
 
 
 def build_category_filter(category: str):
-    """Build a case-insensitive category filter that matches category fragments."""
     normalized_category = " ".join(category.lower().split())
     search_terms = {
         normalized_category,
@@ -101,10 +82,6 @@ def build_category_filter(category: str):
     )
 
 
-# ============================================================================
-# Pydantic Models
-# ============================================================================
-
 class ActivityResponse(BaseModel):
     """Response model for Activity."""
     id: int
@@ -118,6 +95,11 @@ class ActivityResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class ActivitiesResponse(BaseModel):
+    response_timestamp: str
+    activities: List[ActivityResponse]
 
 
 class ActivityCreate(BaseModel):
@@ -154,11 +136,7 @@ class ActivityUpdate(BaseModel):
     sunday_working_hours: list[dict[str, str]] | None = None
 
 
-# ============================================================================
-# Endpoints
-# ============================================================================
-
-@router.get("/", response_model=List[ActivityResponse], status_code=status.HTTP_200_OK)
+@router.get("/", response_model=ActivitiesResponse, status_code=status.HTTP_200_OK)
 def get_activities(
     limit: int = Query(20, ge=1, le=100, description="Number of activities to return (1-100)"),
     category: Optional[str] = Query(None, description="Filter by activity category fragment (e.g., 'restaurant' matches 'italian_restaurant')"),
@@ -166,7 +144,7 @@ def get_activities(
     min_rating_count: Optional[int] = Query(None, ge=0, description="Minimum number of ratings"),
     open_now: Optional[bool] = Query(None, description="Filter by currently open activities"),
     db: Session = Depends(get_db)
-) -> List[ActivityResponse]:
+) -> ActivitiesResponse:
     """
     Retrieve activities with optional filtering.
     
@@ -178,7 +156,7 @@ def get_activities(
     - **open_now**: Filter by currently open activities (true/false)
     
     Returns:
-        List of activities matching all provided filter criteria.
+        Timestamped response object containing the matching activities.
         
     Examples:
         GET /activities
@@ -190,6 +168,8 @@ def get_activities(
         GET /activities?category=restaurant&min_rating=4.5&open_now=true
     """
     
+    response_timestamp = datetime.now(timezone.utc)
+
     # Start with base query
     query = select(Activity)
     filters = []
@@ -218,14 +198,17 @@ def get_activities(
     
     # Filter by open_now if requested (in-memory filtering based on actual working hours)
     if open_now is not None:
-        day_of_week = is_open_now()
         filtered_activities = [
             activity for activity in activities
-            if check_activity_open(activity, day_of_week) == open_now
+            if is_open(activity, response_timestamp) == open_now
         ]
-        return filtered_activities
-    
-    return activities
+    else:
+        filtered_activities = activities
+
+    return ActivitiesResponse(
+        response_timestamp=response_timestamp.isoformat(),
+        activities=filtered_activities,
+    )
 
 
 
