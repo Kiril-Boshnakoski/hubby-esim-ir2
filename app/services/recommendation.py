@@ -4,7 +4,7 @@ import math
 from sqlalchemy.orm import Session
 
 from app.models.activity import Activity
-from app.utils.geo_utils import haversine, validate_coordinates
+from app.utils.geo_utils import haversine, validate_coordinates, filter_by_radius
 from app.services.infer_context import infer_context, get_category_relevance
 
 
@@ -110,22 +110,7 @@ def is_open(activity: Activity, timestamp: datetime) -> bool:
     return False
 
 
-def filter_by_radius(db: Session, latitude: float, longitude: float, radius_km: float = DEFAULT_RECOMMENDATION_RADIUS_KM) -> list[dict]:
-    latitude, longitude = validate_coordinates(latitude, longitude)
-    activities = []
 
-    for activity in db.query(Activity).all():
-        if activity.latitude is None or activity.longitude is None:
-            continue
-
-        distance_km = haversine(latitude, longitude, activity.latitude, activity.longitude)
-        if distance_km <= radius_km:
-            activities.append({
-                "activity": activity,
-                "distance_km": round(distance_km, 4),
-            })
-
-    return activities
 
 
 def build_ranked_recommendations(db: Session, latitude: float, longitude: float) -> dict:
@@ -133,7 +118,9 @@ def build_ranked_recommendations(db: Session, latitude: float, longitude: float)
     response_timestamp = datetime.now(timezone.utc)
     context = infer_context(response_timestamp)
 
-    candidate_activities = filter_by_radius(db, latitude, longitude)
+    # fetch all activities then filter via centralized util
+    all_activities = db.query(Activity).all()
+    candidate_activities = filter_by_radius(latitude, longitude, all_activities, DEFAULT_RECOMMENDATION_RADIUS_KM)
     ranked_activities = []
 
     for item in candidate_activities:
