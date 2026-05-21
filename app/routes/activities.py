@@ -14,12 +14,8 @@ router = APIRouter(
 )
 
 
-# ============================================================================
-# Utility Functions
-# ============================================================================
 
 def parse_hours_entry(entry: dict | str) -> tuple[datetime.time, datetime.time] | None:
-    """Parse an opening hours entry into open and close time objects."""
     if isinstance(entry, str):
         if "-" not in entry:
             return None
@@ -42,7 +38,6 @@ def parse_hours_entry(entry: dict | str) -> tuple[datetime.time, datetime.time] 
 
 
 def is_open(activity: Activity, timestamp: datetime) -> bool:
-    """Return True if the activity is open at the given timestamp."""
     day = timestamp.strftime("%A").lower()
     working_hours = getattr(activity, f"{day}_working_hours", None)
 
@@ -70,7 +65,6 @@ def is_open(activity: Activity, timestamp: datetime) -> bool:
 
 
 def build_category_filter(category: str):
-    """Build a case-insensitive category filter that matches category fragments."""
     normalized_category = " ".join(category.lower().split())
     search_terms = {
         normalized_category,
@@ -87,10 +81,6 @@ def build_category_filter(category: str):
         ]
     )
 
-
-# ============================================================================
-# Pydantic Models
-# ============================================================================
 
 class ActivityResponse(BaseModel):
     """Response model for Activity."""
@@ -145,10 +135,6 @@ class ActivityUpdate(BaseModel):
     saturday_working_hours: list[dict[str, str]] | None = None
     sunday_working_hours: list[dict[str, str]] | None = None
 
-
-# ============================================================================
-# Endpoints
-# ============================================================================
 
 @router.get("/", response_model=ActivitiesResponse, status_code=status.HTTP_200_OK)
 def get_activities(
