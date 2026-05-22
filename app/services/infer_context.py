@@ -14,7 +14,15 @@ CONTEXT_KEYWORDS = {
         'hamburger_restaurant',
         'meal_takeaway',
         'pizza_restaurant',
-        'sushi_restaurant'
+        'sushi_restaurant',
+         'barbecue_restaurant',
+        'bistro',
+        'eastern_european_restaurant',
+        'italian_restaurant',
+        'restaurant',
+        'dessert_restaurant'
+        'seafood_restaurant',
+        'soul_food_restaurant'
     ],
     'dinner': [
         'barbecue_restaurant',
@@ -24,7 +32,12 @@ CONTEXT_KEYWORDS = {
         'restaurant',
         'dessert_restaurant'
         'seafood_restaurant',
-        'soul_food_restaurant'
+        'soul_food_restaurant',
+         'fast_food_restaurant',
+        'hamburger_restaurant',
+        'meal_takeaway',
+        'pizza_restaurant',
+        'sushi_restaurant'
     ],
     'nightlife': [
         'bar',
