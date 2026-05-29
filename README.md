@@ -28,7 +28,19 @@ This repository contains the backend services and data processing scripts for th
    - Copy `.env.example` to `.env`.
    - The default settings are configured to work with the provided Docker setup.
 
-### 3. Start the Database
+### 3. Start the Frontend
+
+From the project root, install frontend dependencies and start the dev server:
+
+```bash
+cd "frontend/Local Vibe Finder"
+npm install
+npm run dev
+```
+
+The frontend will usually be available at `http://localhost:8080`.
+
+### 4. Start the Database
 
 Use Docker Compose to start the PostgreSQL instance:
 
@@ -36,9 +48,10 @@ Use Docker Compose to start the PostgreSQL instance:
 docker-compose up -d
 ```
 
-### 4. Initialize and Populate Data
+### 5. Initialize and Populate Data
 
 #### Full Pipeline
+
 To perform a complete setup (schema creation + data population), run the orchestrator from the root directory:
 
 ```powershell
@@ -46,6 +59,7 @@ python orchestrator.py
 ```
 
 #### Schema Only (No Dummy Data)
+
 If you want to create the database tables **without** filling them with dummy users and activities, you can run the creation script separately:
 
 ```powershell

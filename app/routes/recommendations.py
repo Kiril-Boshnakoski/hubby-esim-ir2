@@ -32,7 +32,12 @@ class RecommendationsResponse(BaseModel):
 
 
 @router.get("/{user_id}", response_model=RecommendationsResponse, status_code=status.HTTP_200_OK)
-def get_recommendations_for_user(user_id: int, db: Session = Depends(get_db)) -> RecommendationsResponse:
+def get_recommendations_for_user(
+    user_id: int,
+    radius: float | None = Query(default=None, gt=0, description="Optional search radius in kilometers"),
+    context: str | None = Query(default=None, description="Optional context override for ranking"),
+    db: Session = Depends(get_db),
+) -> RecommendationsResponse:
     user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
     if user is None:
         raise HTTPException(
@@ -48,7 +53,7 @@ def get_recommendations_for_user(user_id: int, db: Session = Depends(get_db)) ->
 
     try:
         latitude, longitude = validate_coordinates(user.latitude, user.longitude)
-        return build_ranked_recommendations(db, latitude, longitude)
+        return build_ranked_recommendations(db, latitude, longitude, radius_km=radius, context=context)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -60,11 +65,13 @@ def get_recommendations_for_user(user_id: int, db: Session = Depends(get_db)) ->
 def get_recommendations_by_coordinates(
     lat: float = Query(..., description="Latitude used for ranking recommendations"),
     lon: float = Query(..., description="Longitude used for ranking recommendations"),
+    radius: float | None = Query(default=None, gt=0, description="Optional search radius in kilometers"),
+    context: str | None = Query(default=None, description="Optional context override for ranking"),
     db: Session = Depends(get_db),
 ) -> RecommendationsResponse:
     try:
         latitude, longitude = validate_coordinates(lat, lon)
-        return build_ranked_recommendations(db, latitude, longitude)
+        return build_ranked_recommendations(db, latitude, longitude, radius_km=radius, context=context)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

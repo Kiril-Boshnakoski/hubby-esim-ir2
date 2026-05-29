@@ -4,11 +4,13 @@ import math
 from sqlalchemy.orm import Session
 
 from app.models.activity import Activity
-from app.utils.geo_utils import haversine, validate_coordinates, filter_by_radius
+from app.utils.geo_utils import validate_coordinates, filter_by_radius
 from app.services.infer_context import infer_context, get_category_relevance
 
 
 DEFAULT_RECOMMENDATION_RADIUS_KM = 1.0
+MAX_RECOMMENDATION_RADIUS_KM = 15.0
+RECOMMENDATION_RADIUS_STEP_KM = 1.0
 
 def rating_score(rating):
     if not rating:
@@ -113,45 +115,135 @@ def is_open(activity: Activity, timestamp: datetime) -> bool:
 
 
 
-def build_ranked_recommendations(db: Session, latitude: float, longitude: float) -> dict:
+def _normalize_radius(radius_km: float | None) -> float:
+    if radius_km is None:
+        return DEFAULT_RECOMMENDATION_RADIUS_KM
+
+    if radius_km <= 0:
+        raise ValueError("Radius must be greater than 0.")
+
+    return float(radius_km)
+
+
+def _resolve_context(context: str | None, timestamp: datetime) -> str:
+    if context:
+        return context.strip().lower()
+
+    return infer_context(timestamp)
+
+
+def _collect_ranked_candidates(
+    activities: list[Activity],
+    latitude: float,
+    longitude: float,
+    search_radius_km: float,
+    context: str,
+    timestamp: datetime,
+    allow_expansion: bool,
+) -> tuple[list[dict], float]:
+    current_radius_km = search_radius_km
+
+    if not allow_expansion:
+        candidate_activities = filter_by_radius(latitude, longitude, activities, current_radius_km)
+        ranked_activities = []
+
+        for item in candidate_activities:
+            activity = item["activity"]
+            distance_km = item["distance_km"]
+            open_state = is_open(activity, timestamp)
+
+            if not open_state:
+                continue
+
+            score = calculate_score(
+                {
+                    "activity_type": activity.type,
+                    "rating": activity.rating,
+                    "user_rating_count": activity.user_rating_count,
+                },
+                dist_km=distance_km,
+                radius_km=current_radius_km,
+                context=context,
+            )
+
+            ranked_activities.append(
+                {
+                    "activity": activity,
+                    "distance_km": distance_km,
+                    "score": score,
+                    "context": context,
+                    "category_relevance": get_category_relevance(activity.type, context),
+                    "is_open": open_state,
+                }
+            )
+
+        return ranked_activities, current_radius_km
+
+    while current_radius_km <= MAX_RECOMMENDATION_RADIUS_KM:
+        candidate_activities = filter_by_radius(latitude, longitude, activities, current_radius_km)
+        ranked_activities = []
+
+        for item in candidate_activities:
+            activity = item["activity"]
+            distance_km = item["distance_km"]
+            open_state = is_open(activity, timestamp)
+
+            if not open_state:
+                continue
+
+            score = calculate_score(
+                {
+                    "activity_type": activity.type,
+                    "rating": activity.rating,
+                    "user_rating_count": activity.user_rating_count,
+                },
+                dist_km=distance_km,
+                radius_km=current_radius_km,
+                context=context,
+            )
+
+            ranked_activities.append(
+                {
+                    "activity": activity,
+                    "distance_km": distance_km,
+                    "score": score,
+                    "context": context,
+                    "category_relevance": get_category_relevance(activity.type, context),
+                    "is_open": open_state,
+                }
+            )
+
+        if ranked_activities or not allow_expansion or current_radius_km >= MAX_RECOMMENDATION_RADIUS_KM:
+            return ranked_activities, current_radius_km
+
+        current_radius_km = min(current_radius_km + RECOMMENDATION_RADIUS_STEP_KM, MAX_RECOMMENDATION_RADIUS_KM)
+
+    return [], MAX_RECOMMENDATION_RADIUS_KM
+
+
+def build_ranked_recommendations(
+    db: Session,
+    latitude: float,
+    longitude: float,
+    radius_km: float | None = None,
+    context: str | None = None,
+) -> dict:
     latitude, longitude = validate_coordinates(latitude, longitude)
     response_timestamp = datetime.now(timezone.utc)
-    context = infer_context(response_timestamp)
+    allow_expansion = radius_km is None
+    search_radius_km = _normalize_radius(radius_km)
+    resolved_context = _resolve_context(context, response_timestamp)
 
-    # fetch all activities then filter via centralized util
     all_activities = db.query(Activity).all()
-    candidate_activities = filter_by_radius(latitude, longitude, all_activities, DEFAULT_RECOMMENDATION_RADIUS_KM)
-    ranked_activities = []
-
-    for item in candidate_activities:
-        activity = item["activity"]
-        distance_km = item["distance_km"]
-        open_state = is_open(activity, response_timestamp)
-
-        if not open_state:
-            continue
-
-        score = calculate_score(
-            {
-                "activity_type": activity.type,
-                "rating": activity.rating,
-                "user_rating_count": activity.user_rating_count,
-            },
-            dist_km=distance_km,
-            radius_km=DEFAULT_RECOMMENDATION_RADIUS_KM,
-            context=context,
-        )
-
-        ranked_activities.append(
-            {
-                "activity": activity,
-                "distance_km": distance_km,
-                "score": score,
-                "context": context,
-                "category_relevance": get_category_relevance(activity.type, context),
-                "is_open": open_state,
-            }
-        )
+    ranked_activities, effective_radius_km = _collect_ranked_candidates(
+        all_activities,
+        latitude,
+        longitude,
+        search_radius_km,
+        resolved_context,
+        response_timestamp,
+        allow_expansion,
+    )
 
     ranked_activities.sort(
         key=lambda item: (
@@ -178,6 +270,7 @@ def build_ranked_recommendations(db: Session, latitude: float, longitude: float)
 
     return {
         "response_timestamp": response_timestamp.isoformat(),
+        "search_radius_km": effective_radius_km,
         "recommendations": recommendations,
     }
 
