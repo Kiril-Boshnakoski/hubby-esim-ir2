@@ -36,9 +36,7 @@ export function ActivityCard({ activity, onClick }: Props) {
   const catKey = cat?.toLowerCase() ?? "";
   const catStyle = categoryColors[catKey] ?? "from-muted to-muted text-muted-foreground";
   const distanceLabel =
-    typeof activity.distance_km === "number"
-      ? `${activity.distance_km.toFixed(1)} km away`
-      : null;
+    typeof activity.distance_km === "number" ? `${activity.distance_km.toFixed(1)} km away` : null;
 
   return (
     <button
@@ -73,14 +71,14 @@ export function ActivityCard({ activity, onClick }: Props) {
             <h3 className="font-display text-lg font-semibold leading-tight tracking-tight text-foreground">
               {activity.name ?? "Untitled"}
             </h3>
-            {distanceLabel && (
-              <p className="mt-1 text-xs text-muted-foreground">{distanceLabel}</p>
-            )}
+            {distanceLabel && <p className="mt-1 text-xs text-muted-foreground">{distanceLabel}</p>}
           </div>
           {rating != null && (
             <div className="flex shrink-0 items-center gap-1 rounded-lg bg-accent px-2 py-1">
               <Star className="h-3.5 w-3.5 fill-primary text-primary" />
-              <span className="text-sm font-semibold text-accent-foreground">{rating.toFixed(1)}</span>
+              <span className="text-sm font-semibold text-accent-foreground">
+                {rating.toFixed(1)}
+              </span>
             </div>
           )}
         </div>

@@ -1,70 +1,65 @@
-import { useCallback, useEffect, useState } from "react";
-import { Activity, ActivityFilters, fetchActivities } from "@/lib/api";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { fetchActivities, fetchRecommendations, fetchRecommendationsByUserId } from "../lib/api";
 
-function validateCoordinates(filters: ActivityFilters): string | null {
-  const { latitude, longitude } = filters;
-
-  if (latitude != null && (latitude < -90 || latitude > 90)) {
-    return "Latitude must be between -90 and 90.";
-  }
-
-  if (longitude != null && (longitude < -180 || longitude > 180)) {
-    return "Longitude must be between -180 and 180.";
-  }
-
-  return null;
+// --- СТАРИОТ ХУК ШТО ГО БАРА TopRatedSection ---
+export function useActivities(filters: any = {}) {
+  return useQuery({
+    queryKey: ["activities", filters],
+    queryFn: ({ signal }) => fetchActivities(filters, signal),
+  });
 }
 
-export function useActivities(filters: ActivityFilters) {
-  const [data, setData] = useState<Activity[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-
-  const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
-
-  useEffect(() => {
-    const coordinateError = validateCoordinates(filters);
-    if (coordinateError) {
-      setValidationError(coordinateError);
-      setLoading(false);
-      setError(null);
-      setData(null);
-      return;
-    }
-
-    const ctrl = new AbortController();
-    setLoading(true);
-    setError(null);
-    setValidationError(null);
-    console.log("useActivities: fetching with filters:", filters);
-    fetchActivities(filters, ctrl.signal)
-      .then((d) => {
-        console.log("useActivities: successfully fetched", d.length, "activities");
-        setData(d);
-      })
-      .catch((e: unknown) => {
-        if ((e as { name?: string })?.name === "AbortError") return;
-        const errorMessage = e instanceof Error ? e.message : String(e);
-        console.error("useActivities error:", errorMessage, "Details:", e);
-        setError(errorMessage);
-        setData(null);
-      })
-      .finally(() => setLoading(false));
-    return () => ctrl.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    filters.category,
-    filters.limit,
-    filters.min_rating,
-    filters.min_rating_count,
-    filters.open_now,
-    filters.latitude,
-    filters.longitude,
-    filters.radius_km,
-    reloadKey,
-  ]);
-
-  return { data, loading, error, validationError, refresh };
+// --- НОВ ХУК 1: Infinite Scroll преку USER ID (Тоа што се бара во задачата) ---
+export function useInfiniteRecommendationsByUserId(userId: number, category: string, radius?: number) {
+  return useInfiniteQuery({
+    // ГО МЕНУВАМЕ ИМЕТО НА КЛУЧОТ ЗА ДА СЕ ИСЧИСТИ КЕШОТ
+    queryKey: ["recommendations-by-user-v2", userId, category, radius],
+    queryFn: ({ pageParam = 0, signal }) => {
+      return fetchRecommendationsByUserId(
+        {
+          userId,
+          limit: 10, // Влечеме строго по 3 ставки
+          offset: pageParam,
+          context: category,
+          radius,
+        },
+        signal
+      );
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.recommendations || lastPage.recommendations.length < 3) {
+        return undefined;
+      }
+      return allPages.length * 10;
+    },
+    // Ова осигурува дека податоците нема веднаш да се сметаат за застарени
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+// --- СТАРИОТ ХУК: Infinite Scroll преку КООРДИНАТИ ---
+export function useInfiniteRecommendations(lat: number, lon: number, category: string) {
+  return useInfiniteQuery({
+    queryKey: ["recommendations", lat, lon, category],
+    queryFn: ({ pageParam = 0, signal }) => {
+      return fetchRecommendations(
+        {
+          lat,
+          lon,
+          limit: 3, // <--- И овде ставено 3 за конзистентност при тест со координати
+          offset: pageParam,
+          context: category,
+        },
+        signal
+      );
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.recommendations || lastPage.recommendations.length < 3) {
+        return undefined;
+      }
+      return allPages.length * 3;
+    },
+  });
 }

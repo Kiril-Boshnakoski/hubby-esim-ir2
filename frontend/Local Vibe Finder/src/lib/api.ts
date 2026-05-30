@@ -5,6 +5,42 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.
 // Log resolved API base to help debug runtime environment (prints in browser console and Vite SSR logs)
 console.log("API_BASE_URL resolved ->", API_BASE_URL);
 
+// --- ИНТЕРФЕЈСИ ЗА ПРЕПОРАКИ (Според твојот FastAPI бекенд) ---
+export interface RankedRecommendation {
+  rank: number;
+  name: string;
+  type: string | null;
+  distance_km: number;
+  recommendation_score: number;
+  context: string | null;
+  category_relevance: number | null;
+  is_open: boolean | null;
+}
+
+export interface RecommendationsResponse {
+  response_timestamp: string;
+  recommendations: RankedRecommendation[];
+}
+
+export interface RecommendationFilters {
+  lat: number;
+  lon: number;
+  limit?: number;
+  offset?: number;
+  radius?: number;
+  context?: string;
+}
+
+// Нов интерфејс за филтри кога бараме преку User ID
+export interface UserRecommendationFilters {
+  userId: number;
+  limit?: number;
+  offset?: number;
+  radius?: number;
+  context?: string;
+}
+
+// --- СТАРИ ИНТЕРФЕЈСИ ---
 export interface Activity {
   id?: string | number;
   name: string;
@@ -69,11 +105,57 @@ function buildQuery(filters: ActivityFilters): string {
   return s ? `?${s}` : "";
 }
 
+// --- ФУНКЦИЈА 1: Повикување преку User ID (Тоа што се бара за задачата) ---
+export async function fetchRecommendationsByUserId(filters: UserRecommendationFilters, signal?: AbortSignal): Promise<RecommendationsResponse> {
+  const params = new URLSearchParams();
+  params.set("limit", String(filters.limit ?? 10));
+  params.set("offset", String(filters.offset ?? 0));
+  
+  if (filters.radius != null) params.set("radius", String(filters.radius));
+  if (filters.context && filters.context !== "all") params.set("context", filters.context);
+
+  const url = `${API_BASE_URL}/recommendations/${filters.userId}?${params.toString()}`;
+  console.log("fetchRecommendationsByUserId ->", url);
+
+  const res = await fetch(url, { signal, headers: { Accept: "application/json" }, mode: "cors" });
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Неуспешно вчитување препораки за корисник ${filters.userId}: ${res.status} ${errorText}`);
+  }
+
+  return res.json();
+}
+
+// --- ФУНКЦИЈА 2: Повикување на твојот FastAPI за препораки преку Координати (Пагинирано) ---
+export async function fetchRecommendations(filters: RecommendationFilters, signal?: AbortSignal): Promise<RecommendationsResponse> {
+  const params = new URLSearchParams();
+  params.set("lat", String(filters.lat));
+  params.set("lon", String(filters.lon));
+  params.set("limit", String(filters.limit ?? 10));
+  params.set("offset", String(filters.offset ?? 0));
+  
+  if (filters.radius != null) params.set("radius", String(filters.radius));
+  if (filters.context && filters.context !== "all") params.set("context", filters.context);
+
+  const url = `${API_BASE_URL}/recommendations?${params.toString()}`;
+  console.log("fetchRecommendations ->", url);
+
+  const res = await fetch(url, { signal, headers: { Accept: "application/json" }, mode: "cors" });
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Неуспешно вчитување препораки: ${res.status} ${errorText}`);
+  }
+
+  return res.json();
+}
+
+// --- СТАРИ ФУНКЦИИ ---
 export async function fetchActivities(filters: ActivityFilters = {}, signal?: AbortSignal): Promise<Activity[]> {
   const url = `${API_BASE_URL}/activities/${buildQuery(filters)}`;
   console.log("fetchActivities ->", url);
 
-  // simple retry on network failure (no retry on non-2xx responses)
   const maxAttempts = 3;
   let attempt = 0;
   let lastErr: unknown = null;
@@ -98,30 +180,14 @@ export async function fetchActivities(filters: ActivityFilters = {}, signal?: Ab
       const data = await res.json();
       console.log("fetchActivities response data:", data);
       
-      if (Array.isArray(data)) {
-        console.log("Response is direct array, returning", data.length, "items");
-        return data;
-      }
-      if (Array.isArray(data?.activities)) {
-        console.log("Response has .activities key, returning", data.activities.length, "items");
-        return data.activities;
-      }
-      if (Array.isArray(data?.results)) {
-        console.log("Response has .results key, returning", data.results.length, "items");
-        return data.results;
-      }
-      if (Array.isArray(data?.data)) {
-        console.log("Response has .data key, returning", data.data.length, "items");
-        return data.data;
-      }
-      console.error("Response data structure not recognized. Keys:", Object.keys(data));
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.activities)) return data.activities;
+      if (Array.isArray(data?.results)) return data.results;
+      if (Array.isArray(data?.data)) return data.data;
       return [];
     } catch (err) {
       lastErr = err;
-      console.error(`fetchActivities attempt ${attempt} failed:`, err);
-      // if aborted, rethrow immediately
       if ((err as { name?: string })?.name === "AbortError") throw err;
-      // small backoff before retrying
       if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 300 * attempt));
     }
   }

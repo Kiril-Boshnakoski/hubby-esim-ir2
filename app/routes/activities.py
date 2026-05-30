@@ -66,13 +66,26 @@ def is_open(activity: Activity, timestamp: datetime) -> bool:
 
 def build_category_filter(category: str):
     normalized_category = " ".join(category.lower().split())
+    
+    # Спреми листа на термини за пребарување (пр. "restaurants")
     search_terms = {
         normalized_category,
         normalized_category.replace(" ", "_"),
         normalized_category.replace("_", " "),
         normalized_category.replace(" ", "-"),
     }
+    
+    # КРАТЕЊЕ НА МНОЖИНА: Ако завршува на 's' (пр. "restaurants" -> "restaurant", "cafes" -> "cafe")
+    if normalized_category.endswith('s'):
+        singular_category = normalized_category[:-1]
+        search_terms.update({
+            singular_category,
+            singular_category.replace(" ", "_"),
+            singular_category.replace("_", " "),
+            singular_category.replace(" ", "-"),
+        })
 
+    # Ова прави SQL прашање: WHERE type LIKE '%restaurant%' OR type LIKE '%italian_restaurant%'...
     return or_(
         *[
             func.lower(Activity.type).like(f"%{term}%")
