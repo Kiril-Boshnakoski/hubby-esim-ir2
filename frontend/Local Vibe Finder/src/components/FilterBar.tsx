@@ -5,6 +5,7 @@ import { useState } from "react";
 interface Props {
   filters: ActivityFilters;
   onChange: (f: ActivityFilters) => void;
+  validationError?: string | null;
 }
 
 export const CATEGORIES = [
@@ -17,7 +18,7 @@ export const CATEGORIES = [
   { value: "hotel", label: "Hotels" },
 ];
 
-export function FilterBar({ filters, onChange }: Props) {
+export function FilterBar({ filters, onChange, validationError }: Props) {
   const [open, setOpen] = useState(false);
   const activeCat = filters.category ?? "all";
 
@@ -61,7 +62,7 @@ export function FilterBar({ filters, onChange }: Props) {
   return (
     <div className="space-y-4">
       {/* Category chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
         {CATEGORIES.map((c) => {
           const active = activeCat === c.value;
           return (
@@ -106,7 +107,7 @@ export function FilterBar({ filters, onChange }: Props) {
                 step={0.5}
                 value={filters.min_rating ?? 0}
                 onChange={(e) => update({ min_rating: Number(e.target.value) })}
-                className="w-full accent-[var(--color-primary)]"
+                className="w-full accent-(--color-primary)"
               />
             </Field>
 
@@ -174,12 +175,12 @@ export function FilterBar({ filters, onChange }: Props) {
             </Field>
 
             <Field label="Availability">
-              <label className="flex h-[38px] cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm">
+              <label className="flex h-9.5 cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm">
                 <input
                   type="checkbox"
                   checked={!!filters.open_now}
                   onChange={(e) => update({ open_now: e.target.checked || undefined })}
-                  className="h-4 w-4 accent-[var(--color-primary)]"
+                  className="h-4 w-4 accent-(--color-primary)"
                 />
                 Open now only
               </label>
@@ -201,6 +202,7 @@ export function FilterBar({ filters, onChange }: Props) {
             </button>
           </div>
           {geoError && <p className="text-sm text-destructive">{geoError}</p>}
+          {validationError && <p className="text-sm text-destructive">{validationError}</p>}
 
           {advancedCount > 0 && (
             <button

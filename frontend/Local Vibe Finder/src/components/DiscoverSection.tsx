@@ -2,10 +2,9 @@ import { useState } from "react";
 import { Activity, ActivityFilters } from "@/lib/api";
 import { useActivities } from "@/hooks/useActivities";
 import { ActivityCard } from "./ActivityCard";
-import { ActivityCardSkeleton } from "./ActivityCardSkeleton";
 import { ActivityDetailModal } from "./ActivityDetailModal";
 import { FilterBar } from "./FilterBar";
-import { AlertCircle, RefreshCw, MapPinOff } from "lucide-react";
+import { AlertCircle, Loader2, MapPinOff, RefreshCw } from "lucide-react";
 
 interface Props {
   initialFilters?: ActivityFilters;
@@ -14,7 +13,14 @@ interface Props {
 export function DiscoverSection({ initialFilters = { limit: 24, category: "all" } }: Props) {
   const [filters, setFilters] = useState<ActivityFilters>(initialFilters);
   const [selected, setSelected] = useState<Activity | null>(null);
-  const { data, loading, error, refresh } = useActivities(filters);
+  const { data, loading, error, validationError, refresh } = useActivities(filters);
+
+  const emptyReason = getEmptyReason(filters);
+  const showLoadingState = loading && !error && !validationError;
+  const showErrorState = !loading && !validationError && !!error;
+  const showValidationState = !!validationError;
+  const showEmptyState = !loading && !error && !validationError && data != null && data.length === 0;
+  const showCards = !loading && !error && !validationError && !!data && data.length > 0;
 
   return (
     <section className="space-y-6">
@@ -41,16 +47,35 @@ export function DiscoverSection({ initialFilters = { limit: 24, category: "all" 
         </button>
       </div>
 
-      <FilterBar filters={filters} onChange={setFilters} />
+      <FilterBar filters={filters} onChange={setFilters} validationError={validationError} />
 
-      {error && (
+      {showLoadingState && (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading recommendations...</span>
+        </div>
+      )}
+
+      {showValidationState && (
+        <div className="flex flex-col items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-sm text-foreground">
+          <div className="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-300">
+            <AlertCircle className="h-4 w-4" />
+            Check your coordinates
+          </div>
+          <p className="text-muted-foreground">{validationError}</p>
+        </div>
+      )}
+
+      {showErrorState && (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-10 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15 text-destructive">
             <AlertCircle className="h-6 w-6" />
           </span>
           <div>
-            <h3 className="font-display text-lg font-semibold">Couldn't reach the server</h3>
-            <p className="mt-1 max-w-md text-sm text-muted-foreground">{error}</p>
+            <h3 className="font-display text-lg font-semibold">Couldn't load recommendations</h3>
+            <p className="mt-1 max-w-md text-sm text-muted-foreground">
+              We couldn’t load recommendations right now. Please try again.
+            </p>
           </div>
           <button
             onClick={refresh}
@@ -61,29 +86,19 @@ export function DiscoverSection({ initialFilters = { limit: 24, category: "all" 
         </div>
       )}
 
-      {loading && !error && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <ActivityCardSkeleton key={i} />
-          ))}
-        </div>
-      )}
-
-      {!loading && !error && data && data.length === 0 && (
+      {showEmptyState && (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <MapPinOff className="h-6 w-6" />
           </span>
           <div>
-            <h3 className="font-display text-lg font-semibold">No places match these filters</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Try widening your search or clearing some filters.
-            </p>
+            <h3 className="font-display text-lg font-semibold">No nearby activities found</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{emptyReason}</p>
           </div>
         </div>
       )}
 
-      {!loading && !error && data && data.length > 0 && (
+      {showCards && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data.map((a, i) => (
             <ActivityCard
@@ -98,4 +113,28 @@ export function DiscoverSection({ initialFilters = { limit: 24, category: "all" 
       <ActivityDetailModal activity={selected} onClose={() => setSelected(null)} />
     </section>
   );
+}
+
+function getEmptyReason(filters: ActivityFilters): string {
+  if (filters.latitude != null && filters.longitude != null && filters.open_now) {
+    return "All matching places are closed right now.";
+  }
+
+  if (filters.latitude != null && filters.longitude != null && filters.radius_km != null) {
+    return `Nothing matched within your selected ${filters.radius_km} km radius.`;
+  }
+
+  if (filters.latitude != null && filters.longitude != null) {
+    return "No nearby activities were found for this location.";
+  }
+
+  if (filters.category && filters.category !== "all") {
+    return `No ${filters.category.replace(/_/g, " ")} activities matched your filters.`;
+  }
+
+  if (filters.min_rating != null || filters.min_rating_count != null) {
+    return "No activities matched your quality filters.";
+  }
+
+  return "Try widening your search or clearing some filters.";
 }
