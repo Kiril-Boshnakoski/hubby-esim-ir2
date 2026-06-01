@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 // Го увезуваме новиот хук за User ID пагинација
-import { useInfiniteRecommendationsByUserId } from "@/hooks/useActivities";
+import {
+  useInfiniteRecommendations,
+  useInfiniteRecommendationsByUserId,
+} from "@/hooks/useActivities";
 import { ActivityCard } from "./ActivityCard";
 import { ActivityDetailModal } from "./ActivityDetailModal";
 import { FilterBar } from "./FilterBar";
@@ -9,6 +12,7 @@ import { AlertCircle, Loader2, MapPinOff, RefreshCw } from "lucide-react";
 interface ActivityFilters {
   limit?: number;
   category?: string;
+  user_id?: number;
   latitude?: number;
   longitude?: number;
   radius_km?: number;
@@ -29,9 +33,30 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
 
   // Статично ID за корисникот (кое одговара на Swagger тестот со id=5)
   // Понатаму, ова можеш да го земеш динамички од AuthContext/Локал Сториџ
-  const userId = 8;
+  const userId = filters.user_id ?? 8;
+
+  const hasCoordinateFilters =
+    typeof filters.latitude === "number" && typeof filters.longitude === "number";
+
+  const coordinateRecommendations = useInfiniteRecommendations(
+    filters.latitude ?? 41.9981,
+    filters.longitude ?? 21.4254,
+    filters.category ?? "all",
+    filters.radius_km,
+    context,
+    hasCoordinateFilters,
+  );
 
   // СЕГА КОРИСТИМЕ ПАГИНАЦИЈА ПРЕКУ USER ID (Барањето од задачата)
+  const userRecommendations = useInfiniteRecommendationsByUserId(
+    userId,
+    filters.category ?? "all",
+    filters.radius_km,
+    context,
+    !hasCoordinateFilters,
+  );
+
+  const activeQuery = hasCoordinateFilters ? coordinateRecommendations : userRecommendations;
   const {
     data,
     fetchNextPage,
@@ -40,7 +65,7 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
     isLoading: loading,
     isError: error,
     refetch: refresh,
-  } = useInfiniteRecommendationsByUserId(userId, filters.category ?? "all", filters.radius_km, context);
+  } = activeQuery;
 
   // Скрол набљудувач кој автоматски вчитува следна страница кога корисникот е при дното
   useEffect(() => {
@@ -82,7 +107,6 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
   const showCards = !loading && !error && items.length > 0;
   const emptyReason = getEmptyReason(filters);
 
-  
   return (
     <section className="space-y-6">
       {/* Горна секција со динамичен број на пронајдени места */}
@@ -127,13 +151,9 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
           </button>
         ))}
       </div>
-      
+
       {/* Existing filters */}
-      <FilterBar
-        filters={filters}
-        onChange={setFilters}
-        validationError={undefined}
-      />
+      <FilterBar filters={filters} onChange={setFilters} validationError={undefined} />
       {/* Лоадер состојба при иницијално вчитавање */}
       {showLoadingState && (
         <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-foreground">

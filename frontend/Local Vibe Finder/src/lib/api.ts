@@ -1,6 +1,9 @@
 // Centralized API configuration
 // Normalize base URL (remove trailing slash) and fall back to localhost
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(
+  /\/$/,
+  "",
+);
 
 // Log resolved API base to help debug runtime environment (prints in browser console and Vite SSR logs)
 console.log("API_BASE_URL resolved ->", API_BASE_URL);
@@ -40,6 +43,16 @@ export interface UserRecommendationFilters {
   offset?: number;
   radius?: number;
   context?: string;
+}
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  name: string;
+  surname: string;
+  destination?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 // --- СТАРИ ИНТЕРФЕЈСИ ---
@@ -83,6 +96,7 @@ export interface ActivityFilters {
   min_rating?: number;
   min_rating_count?: number;
   open_now?: boolean;
+  user_id?: number;
   latitude?: number;
   longitude?: number;
   radius_km?: number;
@@ -92,7 +106,8 @@ function buildQuery(filters: ActivityFilters): string {
   const params = new URLSearchParams();
   if (filters.limit != null) params.set("limit", String(filters.limit));
   if (filters.category && filters.category !== "all") params.set("category", filters.category);
-  if (filters.min_rating != null && filters.min_rating > 0) params.set("min_rating", String(filters.min_rating));
+  if (filters.min_rating != null && filters.min_rating > 0)
+    params.set("min_rating", String(filters.min_rating));
   if (filters.min_rating_count != null && filters.min_rating_count > 0)
     params.set("min_rating_count", String(filters.min_rating_count));
   if (filters.open_now) params.set("open_now", "true");
@@ -108,11 +123,14 @@ function buildQuery(filters: ActivityFilters): string {
 }
 
 // --- ФУНКЦИЈА 1: Повикување преку User ID (Тоа што се бара за задачата) ---
-export async function fetchRecommendationsByUserId(filters: UserRecommendationFilters, signal?: AbortSignal): Promise<RecommendationsResponse> {
+export async function fetchRecommendationsByUserId(
+  filters: UserRecommendationFilters,
+  signal?: AbortSignal,
+): Promise<RecommendationsResponse> {
   const params = new URLSearchParams();
   params.set("limit", String(filters.limit ?? 10));
   params.set("offset", String(filters.offset ?? 0));
-  
+
   if (filters.radius != null) params.set("radius", String(filters.radius));
   if (filters.context && filters.context !== "all") params.set("context", filters.context);
 
@@ -120,23 +138,28 @@ export async function fetchRecommendationsByUserId(filters: UserRecommendationFi
   console.log("fetchRecommendationsByUserId ->", url);
 
   const res = await fetch(url, { signal, headers: { Accept: "application/json" }, mode: "cors" });
-  
+
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Неуспешно вчитување препораки за корисник ${filters.userId}: ${res.status} ${errorText}`);
+    throw new Error(
+      `Неуспешно вчитување препораки за корисник ${filters.userId}: ${res.status} ${errorText}`,
+    );
   }
 
   return res.json();
 }
 
 // --- ФУНКЦИЈА 2: Повикување на твојот FastAPI за препораки преку Координати (Пагинирано) ---
-export async function fetchRecommendations(filters: RecommendationFilters, signal?: AbortSignal): Promise<RecommendationsResponse> {
+export async function fetchRecommendations(
+  filters: RecommendationFilters,
+  signal?: AbortSignal,
+): Promise<RecommendationsResponse> {
   const params = new URLSearchParams();
   params.set("lat", String(filters.lat));
   params.set("lon", String(filters.lon));
   params.set("limit", String(filters.limit ?? 10));
   params.set("offset", String(filters.offset ?? 0));
-  
+
   if (filters.radius != null) params.set("radius", String(filters.radius));
   if (filters.context && filters.context !== "all") params.set("context", filters.context);
 
@@ -144,7 +167,7 @@ export async function fetchRecommendations(filters: RecommendationFilters, signa
   console.log("fetchRecommendations ->", url);
 
   const res = await fetch(url, { signal, headers: { Accept: "application/json" }, mode: "cors" });
-  
+
   if (!res.ok) {
     const errorText = await res.text();
     throw new Error(`Неуспешно вчитување препораки: ${res.status} ${errorText}`);
@@ -154,7 +177,10 @@ export async function fetchRecommendations(filters: RecommendationFilters, signa
 }
 
 // --- СТАРИ ФУНКЦИИ ---
-export async function fetchActivities(filters: ActivityFilters = {}, signal?: AbortSignal): Promise<Activity[]> {
+export async function fetchActivities(
+  filters: ActivityFilters = {},
+  signal?: AbortSignal,
+): Promise<Activity[]> {
   const url = `${API_BASE_URL}/activities/${buildQuery(filters)}`;
   console.log("fetchActivities ->", url);
 
@@ -164,9 +190,13 @@ export async function fetchActivities(filters: ActivityFilters = {}, signal?: Ab
   while (attempt < maxAttempts) {
     attempt += 1;
     try {
-      const res = await fetch(url, { signal, headers: { Accept: "application/json" }, mode: "cors" });
+      const res = await fetch(url, {
+        signal,
+        headers: { Accept: "application/json" },
+        mode: "cors",
+      });
       console.log(`fetchActivities attempt ${attempt}: response status ${res.status}`);
-      
+
       if (!res.ok) {
         const errorText = await res.text();
         let errorMessage = `Request failed: ${res.status} ${res.statusText}`;
@@ -176,12 +206,17 @@ export async function fetchActivities(filters: ActivityFilters = {}, signal?: Ab
         } catch {
           if (errorText) errorMessage = errorText;
         }
-        console.error(`fetchActivities error (${res.status}):`, errorMessage, "Response:", errorText);
+        console.error(
+          `fetchActivities error (${res.status}):`,
+          errorMessage,
+          "Response:",
+          errorText,
+        );
         throw new Error(errorMessage);
       }
       const data = await res.json();
       console.log("fetchActivities response data:", data);
-      
+
       if (Array.isArray(data)) return data;
       if (Array.isArray(data?.activities)) return data.activities;
       if (Array.isArray(data?.results)) return data.results;
@@ -214,6 +249,19 @@ export async function fetchUsers(signal?: AbortSignal): Promise<unknown[]> {
   }
 }
 
+export async function fetchUserById(userId: number, signal?: AbortSignal): Promise<UserProfile> {
+  const url = `${API_BASE_URL}/users/${userId}`;
+  console.log("fetchUserById ->", url);
+
+  const res = await fetch(url, { signal, headers: { Accept: "application/json" }, mode: "cors" });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Failed to fetch user ${userId}: ${res.status} ${errorText}`);
+  }
+
+  return res.json();
+}
+
 // Helpers to normalize messy API shapes
 export function getRating(a: Activity): number | null {
   return typeof a.rating === "number" ? a.rating : null;
@@ -222,7 +270,11 @@ export function getRatingCount(a: Activity): number | null {
   return (a.user_rating_count ?? a.user_ratings_total ?? a.reviews ?? null) as number | null;
 }
 export function getPhone(a: Activity): string | null {
-  return (a.phone ?? a.phone_number ?? a.formatted_phone_number ?? a.international_phone_number ?? null) as string | null;
+  return (a.phone ??
+    a.phone_number ??
+    a.formatted_phone_number ??
+    a.international_phone_number ??
+    null) as string | null;
 }
 export function getAddress(a: Activity): string | null {
   return (a.address ?? a.formatted_address ?? a.vicinity ?? null) as string | null;

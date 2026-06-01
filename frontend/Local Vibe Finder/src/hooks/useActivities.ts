@@ -14,68 +14,77 @@ export function useInfiniteRecommendationsByUserId(
   userId: number,
   category: string,
   radius?: number,
-  context: string = "auto"
+  context: string = "auto",
+  enabled: boolean = true,
 ) {
+  const pageSize = 10;
+
   return useInfiniteQuery({
-    queryKey: [
-      "recommendations-by-user-v3",
-      userId,
-      category,
-      radius,
-      context,
-    ],
+    queryKey: ["recommendations-by-user-v3", userId, category, radius, context],
 
     queryFn: ({ pageParam = 0, signal }) => {
       return fetchRecommendationsByUserId(
         {
           userId,
-          limit: 10,
+          limit: pageSize,
           offset: pageParam,
           radius,
 
           // auto = don't send context
           ...(context !== "auto" ? { context } : {}),
         },
-        signal
+        signal,
       );
     },
 
     initialPageParam: 0,
 
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage.recommendations || lastPage.recommendations.length < 10) {
+      if (!lastPage.recommendations || lastPage.recommendations.length < pageSize) {
         return undefined;
       }
-    
-      return allPages.length * 10;
+
+      return allPages.length * pageSize;
     },
 
+    enabled,
     staleTime: 0,
     gcTime: 0,
   });
 }
 // --- СТАРИОТ ХУК: Infinite Scroll преку КООРДИНАТИ ---
-export function useInfiniteRecommendations(lat: number, lon: number, category: string) {
+export function useInfiniteRecommendations(
+  lat: number,
+  lon: number,
+  category: string,
+  radius?: number,
+  context: string = "auto",
+  enabled: boolean = true,
+) {
+  const pageSize = 10;
+
   return useInfiniteQuery({
-    queryKey: ["recommendations", lat, lon, category],
+    queryKey: ["recommendations", lat, lon, category, radius, context],
     queryFn: ({ pageParam = 0, signal }) => {
       return fetchRecommendations(
         {
           lat,
           lon,
-          limit: 3, // <--- И овде ставено 3 за конзистентност при тест со координати
+          limit: pageSize,
           offset: pageParam,
-          context: category,
+          radius,
+          ...(context !== "auto" ? { context } : {}),
         },
-        signal
+        signal,
       );
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage.recommendations || lastPage.recommendations.length < 3) {
+      if (!lastPage.recommendations || lastPage.recommendations.length < pageSize) {
         return undefined;
       }
-      return allPages.length * 3;
+      return allPages.length * pageSize;
     },
+    enabled,
   });
 }

@@ -31,6 +31,7 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
     (filters.min_rating_count ? 1 : 0) +
     (filters.open_now ? 1 : 0) +
     (filters.limit && filters.limit !== 24 ? 1 : 0) +
+    (filters.user_id != null ? 1 : 0) +
     (filters.latitude != null ? 1 : 0) +
     (filters.longitude != null ? 1 : 0) +
     (filters.radius_km != null && filters.radius_km !== 1 ? 1 : 0);
@@ -55,7 +56,7 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-      }
+      },
     );
   };
 
@@ -131,7 +132,9 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-smooth focus:border-primary focus:ring-2 focus:ring-ring/30"
               >
                 {[12, 24, 48, 100].map((n) => (
-                  <option key={n} value={n}>{n} results</option>
+                  <option key={n} value={n}>
+                    {n} results
+                  </option>
                 ))}
               </select>
             </Field>
@@ -144,7 +147,22 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
                 step={0.000001}
                 placeholder="41.123"
                 value={filters.latitude ?? ""}
-                onChange={(e) => update({ latitude: e.target.value ? Number(e.target.value) : undefined })}
+                onChange={(e) =>
+                  update({ latitude: e.target.value ? Number(e.target.value) : undefined })
+                }
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-smooth focus:border-primary focus:ring-2 focus:ring-ring/30"
+              />
+            </Field>
+
+            <Field label="User ID">
+              <input
+                type="number"
+                min={1}
+                placeholder="8"
+                value={filters.user_id ?? ""}
+                onChange={(e) =>
+                  update({ user_id: e.target.value ? Number(e.target.value) : undefined })
+                }
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-smooth focus:border-primary focus:ring-2 focus:ring-ring/30"
               />
             </Field>
@@ -157,7 +175,9 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
                 step={0.000001}
                 placeholder="20.801"
                 value={filters.longitude ?? ""}
-                onChange={(e) => update({ longitude: e.target.value ? Number(e.target.value) : undefined })}
+                onChange={(e) =>
+                  update({ longitude: e.target.value ? Number(e.target.value) : undefined })
+                }
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-smooth focus:border-primary focus:ring-2 focus:ring-ring/30"
               />
             </Field>
@@ -169,7 +189,9 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
                 step={0.1}
                 placeholder="1"
                 value={filters.radius_km ?? 1}
-                onChange={(e) => update({ radius_km: e.target.value ? Number(e.target.value) : undefined })}
+                onChange={(e) =>
+                  update({ radius_km: e.target.value ? Number(e.target.value) : undefined })
+                }
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-smooth focus:border-primary focus:ring-2 focus:ring-ring/30"
               />
             </Field>
@@ -190,7 +212,7 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
           <div className="flex flex-col gap-2 rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
-              <p>Use your current location to fill latitude and longitude.</p>
+              <p>Coordinates take priority over User ID when both are set.</p>
             </div>
             <button
               type="button"
@@ -206,9 +228,7 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
 
           {advancedCount > 0 && (
             <button
-              onClick={() =>
-                onChange({ category: filters.category, limit: filters.limit })
-              }
+              onClick={() => onChange({ category: filters.category, limit: filters.limit })}
               className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
               <X className="h-3 w-3" /> Clear filters
@@ -223,7 +243,9 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</label>
+      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </label>
       {children}
     </div>
   );

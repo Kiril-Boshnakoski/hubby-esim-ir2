@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useInfiniteRecommendationsByUserId } from "@/hooks/useActivities";
-import { RankedRecommendation } from "@/lib/api";
+import {
+  useInfiniteRecommendations,
+  useInfiniteRecommendationsByUserId,
+} from "@/hooks/useActivities";
+import { fetchUserById, RankedRecommendation } from "@/lib/api";
 import { Loader2, MapPinOff, RefreshCw, Locate } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -8,11 +11,11 @@ import "leaflet/dist/leaflet.css";
 /* ── Category colours (same palette as ActivityCard) ────────────────────── */
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; dot: string }> = {
   restaurant: { bg: "#fff1f2", border: "#f43f5e", dot: "#e11d48" },
-  cafe:       { bg: "#fffbeb", border: "#f59e0b", dot: "#d97706" },
-  bar:        { bg: "#faf5ff", border: "#a855f7", dot: "#9333ea" },
-  museum:     { bg: "#eff6ff", border: "#3b82f6", dot: "#2563eb" },
-  park:       { bg: "#ecfdf5", border: "#10b981", dot: "#059669" },
-  hotel:      { bg: "#ecfeff", border: "#06b6d4", dot: "#0891b2" },
+  cafe: { bg: "#fffbeb", border: "#f59e0b", dot: "#d97706" },
+  bar: { bg: "#faf5ff", border: "#a855f7", dot: "#9333ea" },
+  museum: { bg: "#eff6ff", border: "#3b82f6", dot: "#2563eb" },
+  park: { bg: "#ecfdf5", border: "#10b981", dot: "#059669" },
+  hotel: { bg: "#ecfeff", border: "#06b6d4", dot: "#0891b2" },
 };
 
 const DEFAULT_COLOR = { bg: "#f8fafc", border: "#94a3b8", dot: "#64748b" };
@@ -126,20 +129,55 @@ export function RecommendationsMap() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
+  const selectedCoordsMarkerRef = useRef<L.CircleMarker | null>(null);
 
   const [category, setCategory] = useState("all");
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [latitudeInput, setLatitudeInput] = useState("");
+  const [longitudeInput, setLongitudeInput] = useState("");
+  const [userIdInput, setUserIdInput] = useState("8");
+  const [selectedUserCoords, setSelectedUserCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
 
-  const userId = 8;
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    isError,
-    refetch,
-  } = useInfiniteRecommendationsByUserId(userId, category);
+  const parsedLatitude = parseOptionalNumber(latitudeInput);
+  const parsedLongitude = parseOptionalNumber(longitudeInput);
+  const hasCoordinateFilters = parsedLatitude != null && parsedLongitude != null;
+  const parsedUserId = parseOptionalInteger(userIdInput);
+  const userId = parsedUserId ?? 8;
+  const selectedPoint = hasCoordinateFilters
+    ? {
+        lat: parsedLatitude as number,
+        lng: parsedLongitude as number,
+        label: "Selected Coordinates",
+      }
+    : selectedUserCoords
+      ? {
+          lat: selectedUserCoords.lat,
+          lng: selectedUserCoords.lng,
+          label: `User ${userId} Coordinates`,
+        }
+      : null;
+
+  const coordinateRecommendations = useInfiniteRecommendations(
+    parsedLatitude ?? 41.9981,
+    parsedLongitude ?? 21.4254,
+    category,
+    undefined,
+    "auto",
+    hasCoordinateFilters,
+  );
+
+  const userRecommendations = useInfiniteRecommendationsByUserId(
+    userId,
+    category,
+    undefined,
+    "auto",
+    !hasCoordinateFilters,
+  );
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch } =
+    hasCoordinateFilters ? coordinateRecommendations : userRecommendations;
 
   // Flatten all pages
   const recommendations: RankedRecommendation[] = data
@@ -157,13 +195,43 @@ export function RecommendationsMap() {
   const locateUser = useCallback(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => { /* silently fail */ },
-      { enableHighAccuracy: true, timeout: 10_000 }
+      (pos) => {
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        /* silently fail */
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
     );
   }, []);
 
-  useEffect(() => { locateUser(); }, [locateUser]);
+  useEffect(() => {
+    locateUser();
+  }, [locateUser]);
+
+  /* ── Resolve selected user coordinates (ID mode) ────────────────────── */
+  useEffect(() => {
+    if (hasCoordinateFilters) {
+      setSelectedUserCoords(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    fetchUserById(userId, controller.signal)
+      .then((user) => {
+        if (typeof user.latitude === "number" && typeof user.longitude === "number") {
+          setSelectedUserCoords({ lat: user.latitude, lng: user.longitude });
+          return;
+        }
+        setSelectedUserCoords(null);
+      })
+      .catch(() => {
+        setSelectedUserCoords(null);
+      });
+
+    return () => controller.abort();
+  }, [hasCoordinateFilters, userId]);
 
   /* ── Initialize map ───────────────────────────────────────────────────── */
   useEffect(() => {
@@ -178,7 +246,8 @@ export function RecommendationsMap() {
     L.control.zoom({ position: "bottomright" }).addTo(map);
 
     L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
       maxZoom: 19,
     }).addTo(map);
 
@@ -209,10 +278,41 @@ export function RecommendationsMap() {
              <p style="margin:4px 0 0;font-size:11px;color:#64748b;">
                ${userPos.lat.toFixed(5)}, ${userPos.lng.toFixed(5)}
              </p>
-           </div>`
+           </div>`,
         );
     }
   }, [userPos]);
+
+  /* ── Selected coordinate marker (from inputs) ───────────────────────── */
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    if (selectedCoordsMarkerRef.current) {
+      selectedCoordsMarkerRef.current.remove();
+      selectedCoordsMarkerRef.current = null;
+    }
+
+    if (!selectedPoint) return;
+
+    selectedCoordsMarkerRef.current = L.circleMarker([selectedPoint.lat, selectedPoint.lng], {
+      radius: 9,
+      color: "#1d4ed8",
+      weight: 3,
+      fillColor: "#3b82f6",
+      fillOpacity: 0.9,
+    })
+      .addTo(mapRef.current)
+      .bindPopup(
+        `<div style="font-family:'Inter',system-ui,sans-serif;text-align:center;padding:4px;">
+           <strong style="font-size:13px;">${selectedPoint.label}</strong>
+           <p style="margin:4px 0 0;font-size:11px;color:#64748b;">
+             ${selectedPoint.lat.toFixed(5)}, ${selectedPoint.lng.toFixed(5)}
+           </p>
+         </div>`,
+      );
+
+    mapRef.current.flyTo([selectedPoint.lat, selectedPoint.lng], 14, { duration: 0.8 });
+  }, [selectedPoint]);
 
   /* ── Recommendation markers ───────────────────────────────────────────── */
   useEffect(() => {
@@ -250,10 +350,14 @@ export function RecommendationsMap() {
       bounds.extend([userPos.lat, userPos.lng]);
     }
 
+    if (selectedPoint) {
+      bounds.extend([selectedPoint.lat, selectedPoint.lng]);
+    }
+
     if (bounds.isValid()) {
       mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     }
-  }, [recommendations, userPos]);
+  }, [recommendations, userPos, category, selectedPoint]);
 
   /* ── Fly-to-user helper ───────────────────────────────────────────────── */
   const flyToUser = () => {
@@ -293,11 +397,49 @@ export function RecommendationsMap() {
             );
           })}
 
+          <input
+            type="number"
+            min={1}
+            placeholder="User ID"
+            value={userIdInput}
+            onChange={(e) => setUserIdInput(e.target.value)}
+            className="h-8 w-24 rounded-lg border border-input bg-background px-2 text-xs outline-none transition-smooth focus:border-primary focus:ring-2 focus:ring-ring/30"
+            title="User ID (used when coordinates are empty)"
+          />
+
+          <input
+            type="number"
+            min={-90}
+            max={90}
+            step={0.000001}
+            placeholder="Lat"
+            value={latitudeInput}
+            onChange={(e) => setLatitudeInput(e.target.value)}
+            className="h-8 w-24 rounded-lg border border-input bg-background px-2 text-xs outline-none transition-smooth focus:border-primary focus:ring-2 focus:ring-ring/30"
+            title="Latitude"
+          />
+
+          <input
+            type="number"
+            min={-180}
+            max={180}
+            step={0.000001}
+            placeholder="Lon"
+            value={longitudeInput}
+            onChange={(e) => setLongitudeInput(e.target.value)}
+            className="h-8 w-24 rounded-lg border border-input bg-background px-2 text-xs outline-none transition-smooth focus:border-primary focus:ring-2 focus:ring-ring/30"
+            title="Longitude"
+          />
+
           <div className="ml-auto flex items-center gap-1.5">
             <span className="hidden text-xs font-medium text-muted-foreground sm:inline">
               {isLoading
                 ? "Loading…"
                 : `${recommendations.length} place${recommendations.length !== 1 ? "s" : ""}`}
+            </span>
+
+            <span className="hidden text-[11px] font-medium text-muted-foreground md:inline">
+              {hasCoordinateFilters ? "Source: coordinates" : `Source: user ${userId}`}
             </span>
 
             <button
@@ -350,4 +492,18 @@ export function RecommendationsMap() {
       <div ref={mapContainerRef} className="flex-1" id="recommendations-map" />
     </div>
   );
+}
+
+function parseOptionalNumber(value: string): number | null {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseOptionalInteger(value: string): number | null {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const intValue = Math.trunc(parsed);
+  return intValue > 0 ? intValue : null;
 }
