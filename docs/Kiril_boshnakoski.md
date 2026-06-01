@@ -9,3 +9,11 @@
 # Week 4
 
 - Help with debugging and fixing bugs and refactored the code
+
+# Week 5
+
+- Added Context-Aware Logic, Category Mapping + Auto-Inference, and fixed major bug in databse entries
+
+# Week 6
+
+- Added radius and context parameters, added automatic expansion of search radius and added more activity entries

@@ -69,7 +69,7 @@ $env:PYTHONPATH = "."; python scripts/create-tables.py
 
 **The orchestrator pipeline executes:**
 
-1. **Table Creation**: `create-tables.py` - Initializes the database schema.
+1. **Table Creation**: `create-tables.py` - Drops and recreates the database schema before loading data.
 2. **Data Cleaning**: `preprocess_activities_tsv.py` - Cleans raw TSV data.
 3. **Activities & Hours**: `insert_activities.py` - Inserts activities and handles working hours.
 4. **User Management**: `generate_dummy_users.py` - Generates and inserts mock users.

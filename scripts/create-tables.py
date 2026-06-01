@@ -9,13 +9,15 @@ from app.models.user import User
 from app.models.activity import Activity
 
 def create_tables():
-    print("Creating tables in the database...")
+    print("Rebuilding tables in the database...")
     try:
-        # Ова ќе ги креира сите табели дефинирани во моделите кои го наследуваат Base
+        # Drop the existing schema so the pipeline always starts from a clean slate.
+        Base.metadata.drop_all(bind=engine)
+        # Recreate all tables defined in the models that inherit from Base.
         Base.metadata.create_all(bind=engine)
-        print("Tables created successfully!")
+        print("Tables recreated successfully!")
     except Exception as e:
-        print(f"An error occurred while creating tables: {e}")
+        print(f"An error occurred while rebuilding tables: {e}")
 
 if __name__ == "__main__":
     create_tables()

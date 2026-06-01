@@ -1,5 +1,5 @@
 """
-Preprocess unique_activities.tsv → processed_activities.tsv
+Preprocess unique_activities.tsv + uniques_activities_2.tsv → processed_activities.tsv
 
 Removes unnecessary fields (Google ID, languageCode, priceLevel) and renames
 the remaining columns to match the Activity model expected by the backend.
@@ -15,7 +15,10 @@ import pandas as pd
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INPUT_PATH = os.path.join(PROJECT_ROOT, "data", "unique_activities.tsv")
+INPUT_PATHS = [
+    os.path.join(PROJECT_ROOT, "data", "unique_activities.tsv"),
+    os.path.join(PROJECT_ROOT, "data", "uniques_activities_2.tsv"),
+]
 OUTPUT_PATH = os.path.join(PROJECT_ROOT, "data", "processed_activities.tsv")
 
 # ── Columns to drop ─────────────────────────────────────────────────────────
@@ -44,15 +47,21 @@ RENAME_MAP = {
 }
 
 
-def preprocess(input_path: str, output_path: str) -> None:
-    """Read the raw TSV, clean it, and write the processed TSV."""
+def preprocess(input_paths: list[str], output_path: str) -> None:
+    """Read the raw TSV files, clean them, and write the processed TSV."""
 
-    if not os.path.exists(input_path):
-        print(f"Error: input file not found → {input_path}")
-        sys.exit(1)
+    frames = []
+    for input_path in input_paths:
+        if not os.path.exists(input_path):
+            print(f"Error: input file not found → {input_path}")
+            sys.exit(1)
 
-    df = pd.read_csv(input_path, sep="\t")
-    print(f"Loaded {len(df)} rows from {input_path}")
+        frame = pd.read_csv(input_path, sep="\t")
+        print(f"Loaded {len(frame)} rows from {input_path}")
+        frames.append(frame)
+
+    df = pd.concat(frames, ignore_index=True)
+    print(f"Combined {len(df)} total rows from {len(frames)} files")
 
     # 1. Drop unnecessary columns
     existing_cols_to_drop = [c for c in COLUMNS_TO_DROP if c in df.columns]
@@ -86,4 +95,4 @@ def preprocess(input_path: str, output_path: str) -> None:
 
 
 if __name__ == "__main__":
-    preprocess(INPUT_PATH, OUTPUT_PATH)
+    preprocess(INPUT_PATHS, OUTPUT_PATH)
