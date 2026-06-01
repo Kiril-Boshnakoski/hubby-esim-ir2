@@ -22,6 +22,8 @@ class RankedRecommendation(BaseModel):
     context: str
     category_relevance: float
     is_open: bool
+    latitude: float
+    longitude: float
 
 class RecommendationsResponse(BaseModel):
     response_timestamp: str

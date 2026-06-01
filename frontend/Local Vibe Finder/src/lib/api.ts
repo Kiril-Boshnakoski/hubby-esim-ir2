@@ -15,6 +15,8 @@ export interface RankedRecommendation {
   context: string | null;
   category_relevance: number | null;
   is_open: boolean | null;
+  latitude: number;
+  longitude: number;
 }
 
 export interface RecommendationsResponse {

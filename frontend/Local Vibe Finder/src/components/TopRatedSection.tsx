@@ -7,7 +7,7 @@ import { Trophy } from "lucide-react";
 import { useState } from "react";
 
 export function TopRatedSection() {
-  const { data, loading, error } = useActivities({ limit: 8, min_rating: 4.5, min_rating_count: 50 });
+  const { data, isLoading, error } = useActivities({ limit: 8, min_rating: 4.5, min_rating_count: 50 });
   const [selected, setSelected] = useState<Activity | null>(null);
 
   if (error) return null;
@@ -29,7 +29,7 @@ export function TopRatedSection() {
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {loading
+        {isLoading
           ? Array.from({ length: 4 }).map((_, i) => <ActivityCardSkeleton key={i} />)
           : (data ?? []).slice(0, 8).map((a, i) => (
               <ActivityCard

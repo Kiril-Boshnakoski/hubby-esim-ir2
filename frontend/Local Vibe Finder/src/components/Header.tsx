@@ -30,6 +30,7 @@ export function Header() {
         <nav className="hidden items-center gap-7 md:flex">
           {link("/", "Discover")}
           {link("/activities", "Activities")}
+          {link("/map", "Map")}
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />

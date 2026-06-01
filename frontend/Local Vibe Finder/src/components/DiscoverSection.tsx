@@ -59,7 +59,7 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
 
   // 1. Спојување на сите страници од React Query во една рамна низа
   const rawItems = data
-    ? data.pages.flatMap((page) => page.recommendations || page.activities || [])
+    ? data.pages.flatMap((page: any) => page.recommendations || page.activities || [])
     : [];
 
   // 2. Трансформација на податоците БЕЗ СУРОВО ЛОКАЛНО ФИЛТРИРАЊЕ

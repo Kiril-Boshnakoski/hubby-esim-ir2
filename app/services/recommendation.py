@@ -264,6 +264,8 @@ def build_ranked_recommendations(
             "context": item["context"],
             "category_relevance": item["category_relevance"],
             "is_open": item["is_open"],
+            "latitude": item["activity"].latitude,
+            "longitude": item["activity"].longitude,
         }
         for index, item in enumerate(ranked_activities)
     ]
@@ -285,9 +287,9 @@ if __name__ == "__main__":
     
     # 2. Тест за get_category_relevance
     print("\n2. Тестирање на get_category_relevance:")
-    тест_контекст = ["lunch", "food", "restaurant"]
-    print(f"Ако е во контекст ('Lunch') треба 1.0 -> Добиено: {get_category_relevance('Lunch', тест_контекст)}")
-    print(f"Ако НЕ Е во контекст ('Museum') треба 0.0 -> Добиено: {get_category_relevance('Museum', тест_контекст)}")
+    тест_контекст = "lunch"
+    print(f"Ако е во контекст ('Lunch') треба 1.0 -> Добиено: {get_category_relevance('restaurant', тест_контекст)}")
+    print(f"Ако НЕ Е во контекст ('Museum') треба 0.0 -> Добиено: {get_category_relevance('museum', тест_контекст)}")
     
     # 3. Нови тестови за Максим: distance_score
     print("\n3. Тестирање на distance_score (Максим):")

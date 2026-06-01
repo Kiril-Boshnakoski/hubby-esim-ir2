@@ -28,7 +28,7 @@ export function useInfiniteRecommendationsByUserId(userId: number, category: str
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage.recommendations || lastPage.recommendations.length < 3) {
+      if (!lastPage.recommendations || lastPage.recommendations.length < 10) {
         return undefined;
       }
       return allPages.length * 10;

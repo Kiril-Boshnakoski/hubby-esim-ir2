@@ -12,3 +12,8 @@
 
 ## Week 5 
 - Contributed to the functions used in the recommendation system
+
+## Week 6
+- Implemented the map using Leaflet.js
+- Implemented the logic for filtering recommendations based on category
+- Added marker clustering for better performance
