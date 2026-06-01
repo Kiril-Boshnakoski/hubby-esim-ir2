@@ -10,30 +10,46 @@ export function useActivities(filters: any = {}) {
 }
 
 // --- НОВ ХУК 1: Infinite Scroll преку USER ID (Тоа што се бара во задачата) ---
-export function useInfiniteRecommendationsByUserId(userId: number, category: string, radius?: number) {
+export function useInfiniteRecommendationsByUserId(
+  userId: number,
+  category: string,
+  radius?: number,
+  context: string = "auto"
+) {
   return useInfiniteQuery({
-    // ГО МЕНУВАМЕ ИМЕТО НА КЛУЧОТ ЗА ДА СЕ ИСЧИСТИ КЕШОТ
-    queryKey: ["recommendations-by-user-v2", userId, category, radius],
+    queryKey: [
+      "recommendations-by-user-v3",
+      userId,
+      category,
+      radius,
+      context,
+    ],
+
     queryFn: ({ pageParam = 0, signal }) => {
       return fetchRecommendationsByUserId(
         {
           userId,
-          limit: 10, // Влечеме строго по 3 ставки
+          limit: 10,
           offset: pageParam,
-          context: category,
           radius,
+
+          // auto = don't send context
+          ...(context !== "auto" ? { context } : {}),
         },
         signal
       );
     },
+
     initialPageParam: 0,
+
     getNextPageParam: (lastPage, allPages) => {
       if (!lastPage.recommendations || lastPage.recommendations.length < 10) {
         return undefined;
       }
+    
       return allPages.length * 10;
     },
-    // Ова осигурува дека податоците нема веднаш да се сметаат за застарени
+
     staleTime: 0,
     gcTime: 0,
   });

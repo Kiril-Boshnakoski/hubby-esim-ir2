@@ -24,6 +24,7 @@ interface Props {
 export function DiscoverSection({ initialFilters = { limit: 10, category: "all" } }: Props) {
   // Локална состојба за филтрите кои ги контролира FilterBar
   const [filters, setFilters] = useState<ActivityFilters>(initialFilters);
+  const [context, setContext] = useState("auto");
   const [selected, setSelected] = useState<any | null>(null);
 
   // Статично ID за корисникот (кое одговара на Swagger тестот со id=5)
@@ -39,7 +40,7 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
     isLoading: loading,
     isError: error,
     refetch: refresh,
-  } = useInfiniteRecommendationsByUserId(userId, filters.category ?? "all", filters.radius_km);
+  } = useInfiniteRecommendationsByUserId(userId, filters.category ?? "all", filters.radius_km, context);
 
   // Скрол набљудувач кој автоматски вчитува следна страница кога корисникот е при дното
   useEffect(() => {
@@ -81,6 +82,7 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
   const showCards = !loading && !error && items.length > 0;
   const emptyReason = getEmptyReason(filters);
 
+  
   return (
     <section className="space-y-6">
       {/* Горна секција со динамичен број на пронајдени места */}
@@ -108,8 +110,30 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
       </div>
 
       {/* Лентата со филтри (Restaurants, Cafes, Bars...) */}
-      <FilterBar filters={filters} onChange={setFilters} validationError={undefined} />
-
+      {/* Context selector */}
+      <div className="flex flex-wrap gap-2">
+        {["auto", "breakfast", "lunch", "dinner", "nightlife"].map((ctx) => (
+          <button
+            key={ctx}
+            onClick={() => setContext(ctx)}
+            className={`rounded-full px-4 py-2 text-sm font-medium border transition
+              ${
+                context === ctx
+                  ? "bg-primary text-white border-primary"
+                  : "bg-card border-border hover:bg-accent"
+              }`}
+          >
+            {ctx.charAt(0).toUpperCase() + ctx.slice(1)}
+          </button>
+        ))}
+      </div>
+      
+      {/* Existing filters */}
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        validationError={undefined}
+      />
       {/* Лоадер состојба при иницијално вчитавање */}
       {showLoadingState && (
         <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-foreground">
