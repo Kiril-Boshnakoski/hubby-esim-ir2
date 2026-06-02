@@ -15,12 +15,13 @@ export function useInfiniteRecommendationsByUserId(
   category: string,
   radius?: number,
   context: string = "auto",
+  openNow?: boolean,
   enabled: boolean = true,
 ) {
   const pageSize = 10;
 
   return useInfiniteQuery({
-    queryKey: ["recommendations-by-user-v3", userId, category, radius, context],
+    queryKey: ["recommendations-by-user-v3", userId, category, radius, context, openNow],
 
     queryFn: ({ pageParam = 0, signal }) => {
       return fetchRecommendationsByUserId(
@@ -29,6 +30,8 @@ export function useInfiniteRecommendationsByUserId(
           limit: pageSize,
           offset: pageParam,
           radius,
+          category,
+          ...(openNow !== undefined ? { open_now: openNow } : {}),
 
           // auto = don't send context
           ...(context !== "auto" ? { context } : {}),
@@ -59,12 +62,13 @@ export function useInfiniteRecommendations(
   category: string,
   radius?: number,
   context: string = "auto",
+  openNow?: boolean,
   enabled: boolean = true,
 ) {
   const pageSize = 10;
 
   return useInfiniteQuery({
-    queryKey: ["recommendations", lat, lon, category, radius, context],
+    queryKey: ["recommendations", lat, lon, category, radius, context, openNow],
     queryFn: ({ pageParam = 0, signal }) => {
       return fetchRecommendations(
         {
@@ -73,6 +77,8 @@ export function useInfiniteRecommendations(
           limit: pageSize,
           offset: pageParam,
           radius,
+          category,
+          ...(openNow !== undefined ? { open_now: openNow } : {}),
           ...(context !== "auto" ? { context } : {}),
         },
         signal,

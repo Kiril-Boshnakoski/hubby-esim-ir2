@@ -33,6 +33,8 @@ export interface RecommendationFilters {
   limit?: number;
   offset?: number;
   radius?: number;
+  category?: string;
+  open_now?: boolean;
   context?: string;
 }
 
@@ -42,6 +44,8 @@ export interface UserRecommendationFilters {
   limit?: number;
   offset?: number;
   radius?: number;
+  category?: string;
+  open_now?: boolean;
   context?: string;
 }
 
@@ -132,6 +136,8 @@ export async function fetchRecommendationsByUserId(
   params.set("offset", String(filters.offset ?? 0));
 
   if (filters.radius != null) params.set("radius", String(filters.radius));
+  if (filters.category && filters.category !== "all") params.set("category", filters.category);
+  if (filters.open_now !== undefined) params.set("open_now", String(filters.open_now));
   if (filters.context && filters.context !== "all") params.set("context", filters.context);
 
   const url = `${API_BASE_URL}/recommendations/${filters.userId}?${params.toString()}`;
@@ -161,6 +167,8 @@ export async function fetchRecommendations(
   params.set("offset", String(filters.offset ?? 0));
 
   if (filters.radius != null) params.set("radius", String(filters.radius));
+  if (filters.category && filters.category !== "all") params.set("category", filters.category);
+  if (filters.open_now !== undefined) params.set("open_now", String(filters.open_now));
   if (filters.context && filters.context !== "all") params.set("context", filters.context);
 
   const url = `${API_BASE_URL}/recommendations?${params.toString()}`;
@@ -300,4 +308,11 @@ export function getOpenNow(a: Activity): boolean | null {
   if (typeof a.open_now === "boolean") return a.open_now;
   if (typeof a.opening_hours?.open_now === "boolean") return a.opening_hours.open_now;
   return null;
+}
+export function getRecommendationScore(a: Activity): number | null {
+  const raw = (a as any).recommendation_score;
+  if (typeof raw !== "number" || !isFinite(raw)) return null;
+  // API returns 0..1; scale to /10
+  const score = raw <= 1 ? raw * 10 : raw;
+  return Math.max(0, Math.min(10, score));
 }

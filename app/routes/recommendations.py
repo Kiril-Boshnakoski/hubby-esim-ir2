@@ -36,6 +36,8 @@ def get_recommendations_for_user(
     user_id: int,
     radius: float | None = Query(default=None, gt=0, description="Optional search radius in kilometers"),
     context: str | None = Query(default=None, description="Optional context override for ranking"),
+    category: str | None = Query(default=None, description="Optional category filter e.g. restaurant,cafe"),
+    open_now: bool | None = Query(default=None, description="If true, only return currently open places"),
     limit: int = Query(default=10, ge=1, description="Колку препораки да врати"),
     offset: int = Query(default=0, ge=0, description="Колку препораки да прескокне"),
     db: Session = Depends(get_db),
@@ -55,7 +57,16 @@ def get_recommendations_for_user(
 
     try:
         latitude, longitude = validate_coordinates(user.latitude, user.longitude)
-        full_response = build_ranked_recommendations(db, latitude, longitude, radius_km=radius, context=context)
+        # TODO: Allow client-supplied lat/lon to override stored user coordinates.
+        full_response = build_ranked_recommendations(
+            db,
+            latitude,
+            longitude,
+            radius_km=radius,
+            context=context,
+            category=category,
+            open_now=open_now,
+        )
         
         # Ekstrakcija na listata (ista logika kako vtoriot endpoint)
         if hasattr(full_response, "recommendations"):
@@ -102,13 +113,23 @@ def get_recommendations_by_coordinates(
     lon: float = Query(..., description="Longitude used for ranking recommendations"),
     radius: float | None = Query(default=None, gt=0, description="Optional search radius in kilometers"),
     context: str | None = Query(default=None, description="Optional context override for ranking"),
+    category: str | None = Query(default=None, description="Optional category filter e.g. restaurant,cafe"),
+    open_now: bool | None = Query(default=None, description="If true, only return currently open places"),
     limit: int = Query(default=10, ge=1, description="Колку препораки да врати"),
     offset: int = Query(default=0, ge=0, description="Колку preporaki da preskokne"),
     db: Session = Depends(get_db),
 ) -> RecommendationsResponse:
     try:
         latitude, longitude = validate_coordinates(lat, lon)
-        full_response = build_ranked_recommendations(db, latitude, longitude, radius_km=radius, context=context)
+        full_response = build_ranked_recommendations(
+            db,
+            latitude,
+            longitude,
+            radius_km=radius,
+            context=context,
+            category=category,
+            open_now=open_now,
+        )
         
         if hasattr(full_response, "recommendations"):
             all_recs = full_response.recommendations

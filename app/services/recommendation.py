@@ -140,11 +140,21 @@ def _collect_ranked_candidates(
     context: str,
     timestamp: datetime,
     allow_expansion: bool,
+    category: str | None = None,
+    open_now: bool | None = None,
 ) -> tuple[list[dict], float]:
     current_radius_km = search_radius_km
 
     if not allow_expansion:
         candidate_activities = filter_by_radius(latitude, longitude, activities, current_radius_km)
+        # Apply category filter if requested
+        if category and category.lower() != "all":
+            cat_norm = category.lower()
+            candidate_activities = [
+                c
+                for c in candidate_activities
+                if (getattr(c["activity"], "type", None) or "").lower().find(cat_norm) != -1
+            ]
         ranked_activities = []
 
         for item in candidate_activities:
@@ -152,7 +162,8 @@ def _collect_ranked_candidates(
             distance_km = item["distance_km"]
             open_state = is_open(activity, timestamp)
 
-            if not open_state:
+            # Only skip closed activities when the client explicitly requested open_now
+            if open_now is True and not open_state:
                 continue
 
             score = calculate_score(
@@ -181,6 +192,13 @@ def _collect_ranked_candidates(
 
     while current_radius_km <= MAX_RECOMMENDATION_RADIUS_KM:
         candidate_activities = filter_by_radius(latitude, longitude, activities, current_radius_km)
+        if category and category.lower() != "all":
+            cat_norm = category.lower()
+            candidate_activities = [
+                c
+                for c in candidate_activities
+                if (getattr(c["activity"], "type", None) or "").lower().find(cat_norm) != -1
+            ]
         ranked_activities = []
 
         for item in candidate_activities:
@@ -188,7 +206,7 @@ def _collect_ranked_candidates(
             distance_km = item["distance_km"]
             open_state = is_open(activity, timestamp)
 
-            if not open_state:
+            if open_now is True and not open_state:
                 continue
 
             score = calculate_score(
@@ -227,6 +245,8 @@ def build_ranked_recommendations(
     longitude: float,
     radius_km: float | None = None,
     context: str | None = None,
+    category: str | None = None,
+    open_now: bool | None = None,
 ) -> dict:
     latitude, longitude = validate_coordinates(latitude, longitude)
     response_timestamp = datetime.now(timezone.utc)
@@ -243,6 +263,8 @@ def build_ranked_recommendations(
         resolved_context,
         response_timestamp,
         allow_expansion,
+        category=category,
+        open_now=open_now,
     )
 
     ranked_activities.sort(

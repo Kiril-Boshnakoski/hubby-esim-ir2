@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Header } from "@/components/Header";
 import { DiscoverSection } from "@/components/DiscoverSection";
 import { CategoryCards } from "@/components/CategoryCards";
@@ -55,19 +55,18 @@ function Hero() {
             filtered by what matters to you.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              to="/activities"
+            <a
+              href="#discover"
               className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-foreground shadow-card transition-smooth hover:shadow-hover"
             >
               Start exploring <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/activities"
-              search={{ open_now: true }}
+            </a>
+            <a
+              href="#discover"
               className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition-smooth hover:bg-white/20"
             >
               <Clock className="h-4 w-4" /> Open now
-            </Link>
+            </a>
           </div>
         </div>
       </div>
