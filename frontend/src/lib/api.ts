@@ -20,6 +20,10 @@ export interface RankedRecommendation {
   is_open: boolean | null;
   latitude: number;
   longitude: number;
+  id: number;
+  phone_number: string | null;
+  rating: number | null;
+  user_rating_count: number;
 }
 
 export interface RecommendationsResponse {

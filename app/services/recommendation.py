@@ -288,6 +288,10 @@ def build_ranked_recommendations(
             "is_open": item["is_open"],
             "latitude": item["activity"].latitude,
             "longitude": item["activity"].longitude,
+            "id": item["activity"].id,
+            "phone_number": item["activity"].phone_number,
+            "rating": item["activity"].rating,
+            "user_rating_count": item["activity"].user_rating_count,
         }
         for index, item in enumerate(ranked_activities)
     ]

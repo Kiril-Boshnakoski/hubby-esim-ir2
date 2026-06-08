@@ -16,6 +16,7 @@ export interface DiscoverMapPoint {
 interface Props {
   points: DiscoverMapPoint[];
   center?: { lat: number; lng: number };
+  centerLabel?: string;
 }
 
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; dot: string }> = {
@@ -46,8 +47,7 @@ function pinIcon(type: string | null): L.DivIcon {
 
 function popupHTML(p: DiscoverMapPoint): string {
   const c = CATEGORY_COLORS[(p.type ?? "").toLowerCase()] ?? DEFAULT_COLOR;
-  const score10 =
-    p.score != null ? (p.score <= 1 ? p.score * 10 : p.score).toFixed(1) : null;
+  const score10 = p.score != null ? (p.score <= 1 ? p.score * 10 : p.score).toFixed(1) : null;
   return `
     <div style="font-family:'Inter',system-ui,sans-serif;min-width:200px;max-width:260px;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
@@ -81,7 +81,7 @@ function popupHTML(p: DiscoverMapPoint): string {
     </div>`;
 }
 
-export function DiscoverMap({ points, center }: Props) {
+export function DiscoverMap({ points, center, centerLabel }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
@@ -122,11 +122,23 @@ export function DiscoverMap({ points, center }: Props) {
         .addTo(layer);
       bounds.extend([p.lat, p.lng]);
     });
-    if (center) bounds.extend([center.lat, center.lng]);
+    // add a blue point for the user's entered coordinates / current center
+    if (center) {
+      L.circleMarker([center.lat, center.lng], {
+        radius: 8,
+        color: "#1e40af",
+        weight: 2,
+        fillColor: "#3b82f6",
+        fillOpacity: 1,
+      })
+        .bindPopup(centerLabel ?? "You are here")
+        .addTo(layer);
+      bounds.extend([center.lat, center.lng]);
+    }
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
     }
-  }, [points, center]);
+  }, [points, center, centerLabel]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">

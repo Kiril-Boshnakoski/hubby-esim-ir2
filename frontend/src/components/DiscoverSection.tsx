@@ -8,6 +8,7 @@ import { ActivityDetailModal } from "./ActivityDetailModal";
 import { FilterBar } from "./FilterBar";
 import { DiscoverMap } from "./DiscoverMap";
 import { AlertCircle, Loader2, MapPinOff, RefreshCw } from "lucide-react";
+import { fetchUserById, UserProfile } from "@/lib/api";
 
 interface ActivityFilters {
   limit?: number;
@@ -31,10 +32,47 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
   const [filters, setFilters] = useState<ActivityFilters>(initialFilters);
   const [context, setContext] = useState("auto");
   const [selected, setSelected] = useState<any | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
   const userId = filters.user_id ?? 8;
   const hasCoordinateFilters =
     typeof filters.latitude === "number" && typeof filters.longitude === "number";
+
+  useEffect(() => {
+    if (hasCoordinateFilters || !filters.user_id) {
+      setSelectedUser(null);
+      return;
+    }
+    const controller = new AbortController();
+    fetchUserById(filters.user_id, controller.signal)
+      .then((user) => {
+        setSelectedUser(user);
+      })
+      .catch(() => {
+        setSelectedUser(null);
+      });
+    return () => controller.abort();
+  }, [hasCoordinateFilters, filters.user_id]);
+
+  const centerCoords = useMemo(() => {
+    if (hasCoordinateFilters) {
+      return { lat: filters.latitude!, lng: filters.longitude! };
+    }
+    if (selectedUser?.latitude != null && selectedUser?.longitude != null) {
+      return { lat: selectedUser.latitude, lng: selectedUser.longitude };
+    }
+    return undefined;
+  }, [hasCoordinateFilters, filters.latitude, filters.longitude, selectedUser]);
+
+  const centerLabel = useMemo(() => {
+    if (hasCoordinateFilters) {
+      return "Selected Coordinates";
+    }
+    if (selectedUser) {
+      return `${selectedUser.name} ${selectedUser.surname ?? ""}`.trim();
+    }
+    return "You are here";
+  }, [hasCoordinateFilters, selectedUser]);
 
   const coordinateRecommendations = useInfiniteRecommendations(
     filters.latitude ?? 41.9981,
@@ -87,12 +125,10 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
 
   const items = rawItems.map((item: any) => ({
     ...item,
-    rating: item.rating ?? item.user_rating ?? 4.5,
-    user_rating_count: item.user_rating_count ?? item.reviews ?? 120,
-    formatted_address: item.distance_km
-      ? `${item.distance_km.toFixed(1)} km away`
-      : (item.formatted_address ?? item.address ?? "Nearby"),
-    phone_number: item.phone_number ?? item.phone ?? "+389 70 399 957",
+    rating: item.rating ?? item.user_rating ?? null,
+    user_rating_count: item.user_rating_count ?? item.reviews ?? null,
+    formatted_address: item.formatted_address ?? item.address ?? null,
+    phone_number: item.phone_number ?? item.phone ?? null,
     category: item.category ?? item.type ?? filters.category,
   }));
 
@@ -209,7 +245,7 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
       {showCards && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
           {/* Cards */}
-          <div className="grid auto-rows-fr gap-4 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+          <div className="grid auto-rows-fr gap-4 grid-cols-[repeat(auto-fill,minmax(260px,1fr))] order-2 lg:order-1">
             {items.map((a, i) => (
               <div
                 key={`${a.id ?? i}-${i}`}
@@ -222,14 +258,11 @@ export function DiscoverSection({ initialFilters = { limit: 10, category: "all" 
           </div>
 
           {/* Map */}
-          <div className="lg:sticky lg:top-20 lg:self-start">
+          <div className="lg:sticky lg:top-20 lg:self-start order-1 lg:order-2">
             <DiscoverMap
               points={mapPoints}
-              center={
-                hasCoordinateFilters
-                  ? { lat: filters.latitude!, lng: filters.longitude! }
-                  : undefined
-              }
+              center={centerCoords}
+              centerLabel={centerLabel}
             />
           </div>
         </div>

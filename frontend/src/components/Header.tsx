@@ -9,9 +9,8 @@ export function Header() {
     return (
       <Link
         to={to}
-        className={`text-sm font-medium transition-smooth hover:text-foreground ${
-          active ? "text-foreground" : "text-muted-foreground"
-        }`}
+        className={`text-sm font-medium transition-smooth hover:text-foreground ${active ? "text-foreground" : "text-muted-foreground"
+          }`}
       >
         {label}
       </Link>
@@ -25,7 +24,7 @@ export function Header() {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-hero text-primary-foreground shadow-card">
             <Compass className="h-5 w-5" strokeWidth={2.5} />
           </span>
-          <span className="font-display text-xl font-semibold tracking-tight">Roam</span>
+          <span className="font-display text-xl font-semibold tracking-tight">Hubby E-Sim</span>
         </Link>
         <nav className="hidden items-center gap-7 md:flex">
           {link("/", "Discover")}

@@ -20,10 +20,14 @@ class RankedRecommendation(BaseModel):
     distance_km: float
     recommendation_score: float
     context: str
-    category_relevance: float
+    category_relevance: float | None = None
     is_open: bool
     latitude: float
     longitude: float
+    id: int
+    phone_number: str | None = None
+    rating: float | None = None
+    user_rating_count: int = 0
 
 class RecommendationsResponse(BaseModel):
     response_timestamp: str

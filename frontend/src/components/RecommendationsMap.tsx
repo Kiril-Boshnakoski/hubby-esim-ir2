@@ -165,7 +165,7 @@ export function RecommendationsMap() {
     category,
     undefined,
     "auto",
-    filters.open_now === true,
+    false,
     hasCoordinateFilters,
   );
 
@@ -174,7 +174,7 @@ export function RecommendationsMap() {
     category,
     undefined,
     "auto",
-    filters.open_now === true,
+    false,
     !hasCoordinateFilters,
   );
 

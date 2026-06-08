@@ -1,6 +1,6 @@
-import { ActivityFilters } from "@/lib/api";
+import { ActivityFilters, fetchUsers, UserProfile } from "@/lib/api";
 import { Crosshair, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface Props {
   filters: ActivityFilters;
@@ -23,6 +23,66 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
   const update = (patch: Partial<ActivityFilters>) => onChange({ ...filters, ...patch });
 
   const [geoError, setGeoError] = useState<string | null>(null);
+
+  // user autocomplete state
+  const [users, setUsers] = useState<UserProfile[] | null>(null);
+  const [userQuery, setUserQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<UserProfile[]>([]);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchUsers()
+      .then((data) => {
+        if (!mounted) return;
+        setUsers((data as UserProfile[]) || []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setUsers([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!users) return;
+    const q = userQuery.trim().toLowerCase();
+    if (q.length === 0) {
+      setSuggestions([]);
+      return;
+    }
+    const matches = users.filter((u) => `${u.name} ${u.surname ?? ""}`.toLowerCase().includes(q));
+    setSuggestions(matches.slice(0, 50));
+  }, [userQuery, users]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) setShowSuggestions(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  useEffect(() => {
+    // if a user_id is already set from filters, try to show the name
+    if (filters.user_id != null && users) {
+      const found = users.find((u) => u.id === filters.user_id);
+      if (found) setSelectedUser(found);
+    }
+  }, [filters.user_id, users]);
+
+  function handleSelectUser(u: UserProfile) {
+    setSelectedUser(u);
+    setUserQuery("");
+    setSuggestions([]);
+    setShowSuggestions(false);
+    update({ user_id: u.id });
+  }
 
   const hasExtras =
     !!filters.open_now ||
@@ -118,7 +178,9 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
           <label className="font-medium text-muted-foreground">Lat</label>
           <input
             value={filters.latitude ?? ""}
-            onChange={(e) => update({ latitude: e.target.value ? Number(e.target.value) : undefined })}
+            onChange={(e) =>
+              update({ latitude: e.target.value ? Number(e.target.value) : undefined })
+            }
             placeholder="41.9981"
             className="w-20 bg-transparent text-xs font-semibold text-foreground outline-none"
             type="number"
@@ -127,7 +189,9 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
           <label className="font-medium text-muted-foreground">Lon</label>
           <input
             value={filters.longitude ?? ""}
-            onChange={(e) => update({ longitude: e.target.value ? Number(e.target.value) : undefined })}
+            onChange={(e) =>
+              update({ longitude: e.target.value ? Number(e.target.value) : undefined })
+            }
             placeholder="21.4254"
             className="w-20 bg-transparent text-xs font-semibold text-foreground outline-none"
             type="number"
@@ -135,16 +199,46 @@ export function FilterBar({ filters, onChange, validationError }: Props) {
           />
         </div>
 
-        {/* User ID input */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs">
+        {/* User name autocomplete (replaces User ID input) */}
+        <div
+          ref={containerRef}
+          className="relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs"
+        >
           <label className="font-medium text-muted-foreground">User</label>
-          <input
-            value={filters.user_id ?? ""}
-            onChange={(e) => update({ user_id: e.target.value ? Number(e.target.value) : undefined })}
-            placeholder="8"
-            className="w-20 bg-transparent text-xs font-semibold text-foreground outline-none"
-            type="number"
-          />
+          <div className="relative">
+            <input
+              value={
+                selectedUser
+                  ? `${selectedUser.name} ${selectedUser.surname ?? ""}`.trim()
+                  : userQuery
+              }
+              onChange={(e) => {
+                const v = e.target.value;
+                setUserQuery(v);
+                setSelectedUser(null);
+                update({ user_id: undefined });
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              placeholder="Start typing a name..."
+              className="w-40 bg-transparent text-xs font-semibold text-foreground outline-none"
+              type="text"
+              title="Search users by name"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 top-full z-50 mt-1 max-h-48 w-64 overflow-auto rounded-md border border-border bg-card shadow-lg">
+                {suggestions.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => handleSelectUser(u)}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-accent"
+                  >
+                    {`${u.name} ${u.surname ?? ""} (${u.id})`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {hasExtras && (

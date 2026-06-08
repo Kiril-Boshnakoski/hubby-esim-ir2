@@ -25,7 +25,7 @@ export function CategoryCards() {
         {CATS.map(({ value, label, icon: Icon, tint }) => (
           <Link
             key={value}
-            to="/activities"
+            to="/"
             search={{ category: value }}
             className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 transition-smooth hover:-translate-y-0.5 hover:shadow-hover"
           >

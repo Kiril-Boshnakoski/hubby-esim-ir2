@@ -4,8 +4,14 @@ import { DiscoverSection } from "@/components/DiscoverSection";
 import { CategoryCards } from "@/components/CategoryCards";
 import { TopRatedSection } from "@/components/TopRatedSection";
 import { ArrowRight, Clock, Sparkles } from "lucide-react";
+import { z } from "zod";
+
+const indexSearchSchema = z.object({
+  category: z.string().optional(),
+});
 
 export const Route = createFileRoute("/")({
+  validateSearch: indexSearchSchema,
   head: () => ({
     meta: [
       { title: "Roam — Discover local activities nearby" },
@@ -18,6 +24,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { category } = Route.useSearch();
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -26,7 +33,7 @@ function Index() {
         <CategoryCards />
         <TopRatedSection />
         <div id="discover" className="space-y-2">
-          <DiscoverSection initialFilters={{ limit: 12, category: "all" }} />
+          <DiscoverSection key={category} initialFilters={{ limit: 12, category: category ?? "all" }} />
         </div>
       </main>
       <Footer />
