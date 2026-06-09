@@ -12,3 +12,9 @@ data/*.tsv
 .venv
 venv/
 .venv/
+
+# node modules
+frontend/node_modules/
+
+# wrangler deployments
+frontend/.wrangler
