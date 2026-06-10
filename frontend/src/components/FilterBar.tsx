@@ -14,7 +14,6 @@ export const CATEGORIES = [
   { value: "cafe", label: "Cafes" },
   { value: "bar", label: "Bars" },
   { value: "museum", label: "Museums" },
-  { value: "park", label: "Parks" },
   { value: "hotel", label: "Hotels" },
 ];
 
