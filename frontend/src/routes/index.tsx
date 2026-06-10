@@ -14,10 +14,17 @@ export const Route = createFileRoute("/")({
   validateSearch: indexSearchSchema,
   head: () => ({
     meta: [
-      { title: "Roam — Discover local activities nearby" },
-      { name: "description", content: "Find restaurants, cafes, bars, museums, parks and hotels near you. Curated, real, open now." },
-      { property: "og:title", content: "Roam — Discover local activities nearby" },
-      { property: "og:description", content: "Find restaurants, cafes, bars, museums, parks and hotels near you." },
+      { title: "Hubby E-Sim — Discover local activities nearby" },
+      {
+        name: "description",
+        content:
+          "Find restaurants, cafes, bars, museums, parks and hotels near you. Curated, real, open now.",
+      },
+      { property: "og:title", content: "Hubby E-Sim — Discover local activities nearby" },
+      {
+        property: "og:description",
+        content: "Find restaurants, cafes, bars, museums, parks and hotels near you.",
+      },
     ],
   }),
   component: Index,
@@ -33,7 +40,10 @@ function Index() {
         <CategoryCards />
         <TopRatedSection />
         <div id="discover" className="space-y-2">
-          <DiscoverSection key={category} initialFilters={{ limit: 12, category: category ?? "all" }} />
+          <DiscoverSection
+            key={category}
+            initialFilters={{ limit: 12, category: category ?? "all" }}
+          />
         </div>
       </main>
       <Footer />
@@ -58,8 +68,8 @@ function Hero() {
             around you.
           </h1>
           <p className="mt-6 max-w-xl text-lg text-white/85">
-            From corner cafés to overlooked museums — Roam surfaces the spots locals actually visit,
-            filtered by what matters to you.
+            From corner cafés to overlooked museums — Hubby E-Sim surfaces the spots locals actually
+            visit, filtered by what matters to you.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
@@ -85,7 +95,7 @@ function Footer() {
   return (
     <footer className="border-t border-border">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
-        <p>© {new Date().getFullYear()} Roam — Discover local activities</p>
+        <p>© {new Date().getFullYear()} Hubby E-Sim — Discover local activities</p>
         <p>Made for explorers.</p>
       </div>
     </footer>
